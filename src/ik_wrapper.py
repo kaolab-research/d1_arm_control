@@ -11,7 +11,7 @@ class IKServer:
         self.running = True
         self.verbose = verbose
     
-        p.connect(p.DIRECT)
+        self.p_id = p.connect(p.DIRECT)
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
         print("Pybullet Initialized")
 
@@ -33,21 +33,27 @@ class IKServer:
         
         if self.verbose:
             print("IK Server Successfully Initialized")
+    
+    def solve_ik(): 
+        print("Solve Inverse Kinematics for D1 Arm")
+    
+    def handle_client(): 
+        print(f"Handle Client Calls")
 
     def run(self):
-       server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-       server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) # Allows the same port to be quickly reused
+        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) # Allows the same port to be quickly reused
        
-       try:
-           server.bind((self.host, self.port))
-           server.listen(5)
-           server.settimeout(1.0)
+        try:
+            server.bind((self.host, self.port))
+            server.listen(5)
+            server.settimeout(1.0)
 
-           if self.verbose:
-            print(f"\n{'='*50}")
-            print(f"IK Server Running on {self.host}:{self.port}")
-            print(f"\n{'='*50}")
-            print("Waiting for messages...")
+            if self.verbose:
+                print(f"\n{'='*50}")
+                print(f"IK Server Running on {self.host}:{self.port}")
+                print(f"\n{'='*50}")
+                print("Waiting for messages...")
 
             while self.running:
                 try:
@@ -57,7 +63,14 @@ class IKServer:
                     continue
                 except Exception as e: 
                     if self.running: 
-                        print("Error ")
+                        print(f"Error connecting: {e}")
+        except Exception as e: 
+            print(f"Server error: {e}")
+        finally: 
+            server.close()
+            p.disconnect(self.p_id) 
+            print(f"Server Shut Down")
+        
                 
 target_pos = [3, 1, 10]
 ik_server = IKServer("urdf/d1_550_description.urdf")
@@ -70,5 +83,6 @@ joint_angles = p.calculateInverseKinematics(
     residualThreshold=1e-5
 )
 
+ik_server.run()
+
 print(f"Joint angles: {joint_angles[:7]}")
-    
