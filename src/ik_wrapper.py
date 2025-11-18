@@ -122,7 +122,6 @@ class IKServer:
             print(f"Disconnected: {addr}")
 
 
-
     def run(self):
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) # Allows the same port to be quickly reused
