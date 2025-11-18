@@ -9,36 +9,6 @@
 using namespace unitree::robot;
 using namespace unitree::common;
 
-class IKClient 
-{
-private:
-    int sock; 
-    struct sockaddr_in server_addr; 
-
-public: 
-    IKClient(const char* host = "127.0.0.1", int port = 5555) {
-        sock = socket(AF_INET, SOCK_STREAM, 0)
-        server_addr.sin_family = AF_INET;
-        server_addr.sin_port = htons(port);
-        inet_pton(AF_INET, host, &server_addr.sin_port);
-    }
-
-    bool solveIK(float target_pos[3], float &joint_angles[7]) {
-
-        if (connect(sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
-            return false;
-        }
-
-        send(sock, target_pos, 3 * sizeof(float), 0);
-        recv(sock, joint_angles, 7 * sizeof(float), 0);
-
-        close(sock);
-        sock = socket(AF_INET, SOCK_STREAM, 0);
-
-        return true; 
-    }
-};
-
 class JointAngleControl 
 {
 private: 
