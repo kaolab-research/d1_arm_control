@@ -7,7 +7,7 @@ set(CMAKE_DEPENDS_GENERATOR "Unix Makefiles")
 # The top level Makefile was generated from the following files:
 set(CMAKE_MAKEFILE_DEPENDS
   "CMakeCache.txt"
-  "/Users/Sarah/Desktop/kao_lab/d1_sdk/CMakeLists.txt"
+  "/Users/Sarah/Desktop/kao_lab/d1_arm_cart_ctrl/CMakeLists.txt"
   "CMakeFiles/3.31.3/CMakeCCompiler.cmake"
   "CMakeFiles/3.31.3/CMakeCXXCompiler.cmake"
   "CMakeFiles/3.31.3/CMakeSystem.cmake"
@@ -138,9 +138,5 @@ set(CMAKE_MAKEFILE_PRODUCTS
 
 # Dependency information for all targets:
 set(CMAKE_DEPEND_INFO_FILES
-  "CMakeFiles/joint_angle_control.dir/DependInfo.cmake"
-  "CMakeFiles/multiple_joint_angle_control.dir/DependInfo.cmake"
-  "CMakeFiles/joint_enable_control.dir/DependInfo.cmake"
-  "CMakeFiles/arm_zero_control.dir/DependInfo.cmake"
-  "CMakeFiles/get_arm_joint_angle.dir/DependInfo.cmake"
+  "CMakeFiles/tester_ik.dir/DependInfo.cmake"
   )

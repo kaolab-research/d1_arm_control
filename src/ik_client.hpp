@@ -172,5 +172,4 @@ class IKClient {
         }
 };
 
-#endif IK_CLIENT_H
-
+#endif // IK_CLIENT_H

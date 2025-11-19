@@ -57,10 +57,10 @@ RM = /usr/local/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /Users/Sarah/Desktop/kao_lab/d1_sdk
+CMAKE_SOURCE_DIR = /Users/Sarah/Desktop/kao_lab/d1_arm_cart_ctrl
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /Users/Sarah/Desktop/kao_lab/d1_sdk/build
+CMAKE_BINARY_DIR = /Users/Sarah/Desktop/kao_lab/d1_arm_cart_ctrl/build
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -87,9 +87,9 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /Users/Sarah/Desktop/kao_lab/d1_sdk/build/CMakeFiles /Users/Sarah/Desktop/kao_lab/d1_sdk/build//CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/Sarah/Desktop/kao_lab/d1_arm_cart_ctrl/build/CMakeFiles /Users/Sarah/Desktop/kao_lab/d1_arm_cart_ctrl/build//CMakeFiles/progress.marks
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /Users/Sarah/Desktop/kao_lab/d1_sdk/build/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/Sarah/Desktop/kao_lab/d1_arm_cart_ctrl/build/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
@@ -117,249 +117,41 @@ depend:
 .PHONY : depend
 
 #=============================================================================
-# Target rules for targets named joint_angle_control
+# Target rules for targets named tester_ik
 
 # Build rule for target.
-joint_angle_control: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 joint_angle_control
-.PHONY : joint_angle_control
+tester_ik: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tester_ik
+.PHONY : tester_ik
 
 # fast build rule for target.
-joint_angle_control/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/joint_angle_control.dir/build.make CMakeFiles/joint_angle_control.dir/build
-.PHONY : joint_angle_control/fast
+tester_ik/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/tester_ik.dir/build.make CMakeFiles/tester_ik.dir/build
+.PHONY : tester_ik/fast
 
-#=============================================================================
-# Target rules for targets named multiple_joint_angle_control
-
-# Build rule for target.
-multiple_joint_angle_control: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 multiple_joint_angle_control
-.PHONY : multiple_joint_angle_control
-
-# fast build rule for target.
-multiple_joint_angle_control/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/multiple_joint_angle_control.dir/build.make CMakeFiles/multiple_joint_angle_control.dir/build
-.PHONY : multiple_joint_angle_control/fast
-
-#=============================================================================
-# Target rules for targets named joint_enable_control
-
-# Build rule for target.
-joint_enable_control: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 joint_enable_control
-.PHONY : joint_enable_control
-
-# fast build rule for target.
-joint_enable_control/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/joint_enable_control.dir/build.make CMakeFiles/joint_enable_control.dir/build
-.PHONY : joint_enable_control/fast
-
-#=============================================================================
-# Target rules for targets named arm_zero_control
-
-# Build rule for target.
-arm_zero_control: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 arm_zero_control
-.PHONY : arm_zero_control
-
-# fast build rule for target.
-arm_zero_control/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/arm_zero_control.dir/build.make CMakeFiles/arm_zero_control.dir/build
-.PHONY : arm_zero_control/fast
-
-#=============================================================================
-# Target rules for targets named get_arm_joint_angle
-
-# Build rule for target.
-get_arm_joint_angle: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 get_arm_joint_angle
-.PHONY : get_arm_joint_angle
-
-# fast build rule for target.
-get_arm_joint_angle/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/get_arm_joint_angle.dir/build.make CMakeFiles/get_arm_joint_angle.dir/build
-.PHONY : get_arm_joint_angle/fast
-
-src/arm_zero_control.o: src/arm_zero_control.cpp.o
-.PHONY : src/arm_zero_control.o
+src/tester_ik.o: src/tester_ik.cpp.o
+.PHONY : src/tester_ik.o
 
 # target to build an object file
-src/arm_zero_control.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/arm_zero_control.dir/build.make CMakeFiles/arm_zero_control.dir/src/arm_zero_control.cpp.o
-.PHONY : src/arm_zero_control.cpp.o
+src/tester_ik.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/tester_ik.dir/build.make CMakeFiles/tester_ik.dir/src/tester_ik.cpp.o
+.PHONY : src/tester_ik.cpp.o
 
-src/arm_zero_control.i: src/arm_zero_control.cpp.i
-.PHONY : src/arm_zero_control.i
-
-# target to preprocess a source file
-src/arm_zero_control.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/arm_zero_control.dir/build.make CMakeFiles/arm_zero_control.dir/src/arm_zero_control.cpp.i
-.PHONY : src/arm_zero_control.cpp.i
-
-src/arm_zero_control.s: src/arm_zero_control.cpp.s
-.PHONY : src/arm_zero_control.s
-
-# target to generate assembly for a file
-src/arm_zero_control.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/arm_zero_control.dir/build.make CMakeFiles/arm_zero_control.dir/src/arm_zero_control.cpp.s
-.PHONY : src/arm_zero_control.cpp.s
-
-src/get_arm_joint_angle.o: src/get_arm_joint_angle.cpp.o
-.PHONY : src/get_arm_joint_angle.o
-
-# target to build an object file
-src/get_arm_joint_angle.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/get_arm_joint_angle.dir/build.make CMakeFiles/get_arm_joint_angle.dir/src/get_arm_joint_angle.cpp.o
-.PHONY : src/get_arm_joint_angle.cpp.o
-
-src/get_arm_joint_angle.i: src/get_arm_joint_angle.cpp.i
-.PHONY : src/get_arm_joint_angle.i
+src/tester_ik.i: src/tester_ik.cpp.i
+.PHONY : src/tester_ik.i
 
 # target to preprocess a source file
-src/get_arm_joint_angle.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/get_arm_joint_angle.dir/build.make CMakeFiles/get_arm_joint_angle.dir/src/get_arm_joint_angle.cpp.i
-.PHONY : src/get_arm_joint_angle.cpp.i
+src/tester_ik.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/tester_ik.dir/build.make CMakeFiles/tester_ik.dir/src/tester_ik.cpp.i
+.PHONY : src/tester_ik.cpp.i
 
-src/get_arm_joint_angle.s: src/get_arm_joint_angle.cpp.s
-.PHONY : src/get_arm_joint_angle.s
-
-# target to generate assembly for a file
-src/get_arm_joint_angle.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/get_arm_joint_angle.dir/build.make CMakeFiles/get_arm_joint_angle.dir/src/get_arm_joint_angle.cpp.s
-.PHONY : src/get_arm_joint_angle.cpp.s
-
-src/joint_angle_control.o: src/joint_angle_control.cpp.o
-.PHONY : src/joint_angle_control.o
-
-# target to build an object file
-src/joint_angle_control.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/joint_angle_control.dir/build.make CMakeFiles/joint_angle_control.dir/src/joint_angle_control.cpp.o
-.PHONY : src/joint_angle_control.cpp.o
-
-src/joint_angle_control.i: src/joint_angle_control.cpp.i
-.PHONY : src/joint_angle_control.i
-
-# target to preprocess a source file
-src/joint_angle_control.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/joint_angle_control.dir/build.make CMakeFiles/joint_angle_control.dir/src/joint_angle_control.cpp.i
-.PHONY : src/joint_angle_control.cpp.i
-
-src/joint_angle_control.s: src/joint_angle_control.cpp.s
-.PHONY : src/joint_angle_control.s
+src/tester_ik.s: src/tester_ik.cpp.s
+.PHONY : src/tester_ik.s
 
 # target to generate assembly for a file
-src/joint_angle_control.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/joint_angle_control.dir/build.make CMakeFiles/joint_angle_control.dir/src/joint_angle_control.cpp.s
-.PHONY : src/joint_angle_control.cpp.s
-
-src/joint_enable_control.o: src/joint_enable_control.cpp.o
-.PHONY : src/joint_enable_control.o
-
-# target to build an object file
-src/joint_enable_control.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/joint_enable_control.dir/build.make CMakeFiles/joint_enable_control.dir/src/joint_enable_control.cpp.o
-.PHONY : src/joint_enable_control.cpp.o
-
-src/joint_enable_control.i: src/joint_enable_control.cpp.i
-.PHONY : src/joint_enable_control.i
-
-# target to preprocess a source file
-src/joint_enable_control.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/joint_enable_control.dir/build.make CMakeFiles/joint_enable_control.dir/src/joint_enable_control.cpp.i
-.PHONY : src/joint_enable_control.cpp.i
-
-src/joint_enable_control.s: src/joint_enable_control.cpp.s
-.PHONY : src/joint_enable_control.s
-
-# target to generate assembly for a file
-src/joint_enable_control.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/joint_enable_control.dir/build.make CMakeFiles/joint_enable_control.dir/src/joint_enable_control.cpp.s
-.PHONY : src/joint_enable_control.cpp.s
-
-src/msg/ArmString_.o: src/msg/ArmString_.cpp.o
-.PHONY : src/msg/ArmString_.o
-
-# target to build an object file
-src/msg/ArmString_.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/joint_angle_control.dir/build.make CMakeFiles/joint_angle_control.dir/src/msg/ArmString_.cpp.o
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/multiple_joint_angle_control.dir/build.make CMakeFiles/multiple_joint_angle_control.dir/src/msg/ArmString_.cpp.o
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/joint_enable_control.dir/build.make CMakeFiles/joint_enable_control.dir/src/msg/ArmString_.cpp.o
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/arm_zero_control.dir/build.make CMakeFiles/arm_zero_control.dir/src/msg/ArmString_.cpp.o
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/get_arm_joint_angle.dir/build.make CMakeFiles/get_arm_joint_angle.dir/src/msg/ArmString_.cpp.o
-.PHONY : src/msg/ArmString_.cpp.o
-
-src/msg/ArmString_.i: src/msg/ArmString_.cpp.i
-.PHONY : src/msg/ArmString_.i
-
-# target to preprocess a source file
-src/msg/ArmString_.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/joint_angle_control.dir/build.make CMakeFiles/joint_angle_control.dir/src/msg/ArmString_.cpp.i
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/multiple_joint_angle_control.dir/build.make CMakeFiles/multiple_joint_angle_control.dir/src/msg/ArmString_.cpp.i
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/joint_enable_control.dir/build.make CMakeFiles/joint_enable_control.dir/src/msg/ArmString_.cpp.i
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/arm_zero_control.dir/build.make CMakeFiles/arm_zero_control.dir/src/msg/ArmString_.cpp.i
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/get_arm_joint_angle.dir/build.make CMakeFiles/get_arm_joint_angle.dir/src/msg/ArmString_.cpp.i
-.PHONY : src/msg/ArmString_.cpp.i
-
-src/msg/ArmString_.s: src/msg/ArmString_.cpp.s
-.PHONY : src/msg/ArmString_.s
-
-# target to generate assembly for a file
-src/msg/ArmString_.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/joint_angle_control.dir/build.make CMakeFiles/joint_angle_control.dir/src/msg/ArmString_.cpp.s
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/multiple_joint_angle_control.dir/build.make CMakeFiles/multiple_joint_angle_control.dir/src/msg/ArmString_.cpp.s
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/joint_enable_control.dir/build.make CMakeFiles/joint_enable_control.dir/src/msg/ArmString_.cpp.s
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/arm_zero_control.dir/build.make CMakeFiles/arm_zero_control.dir/src/msg/ArmString_.cpp.s
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/get_arm_joint_angle.dir/build.make CMakeFiles/get_arm_joint_angle.dir/src/msg/ArmString_.cpp.s
-.PHONY : src/msg/ArmString_.cpp.s
-
-src/msg/PubServoInfo_.o: src/msg/PubServoInfo_.cpp.o
-.PHONY : src/msg/PubServoInfo_.o
-
-# target to build an object file
-src/msg/PubServoInfo_.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/get_arm_joint_angle.dir/build.make CMakeFiles/get_arm_joint_angle.dir/src/msg/PubServoInfo_.cpp.o
-.PHONY : src/msg/PubServoInfo_.cpp.o
-
-src/msg/PubServoInfo_.i: src/msg/PubServoInfo_.cpp.i
-.PHONY : src/msg/PubServoInfo_.i
-
-# target to preprocess a source file
-src/msg/PubServoInfo_.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/get_arm_joint_angle.dir/build.make CMakeFiles/get_arm_joint_angle.dir/src/msg/PubServoInfo_.cpp.i
-.PHONY : src/msg/PubServoInfo_.cpp.i
-
-src/msg/PubServoInfo_.s: src/msg/PubServoInfo_.cpp.s
-.PHONY : src/msg/PubServoInfo_.s
-
-# target to generate assembly for a file
-src/msg/PubServoInfo_.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/get_arm_joint_angle.dir/build.make CMakeFiles/get_arm_joint_angle.dir/src/msg/PubServoInfo_.cpp.s
-.PHONY : src/msg/PubServoInfo_.cpp.s
-
-src/multiple_joint_angle_control.o: src/multiple_joint_angle_control.cpp.o
-.PHONY : src/multiple_joint_angle_control.o
-
-# target to build an object file
-src/multiple_joint_angle_control.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/multiple_joint_angle_control.dir/build.make CMakeFiles/multiple_joint_angle_control.dir/src/multiple_joint_angle_control.cpp.o
-.PHONY : src/multiple_joint_angle_control.cpp.o
-
-src/multiple_joint_angle_control.i: src/multiple_joint_angle_control.cpp.i
-.PHONY : src/multiple_joint_angle_control.i
-
-# target to preprocess a source file
-src/multiple_joint_angle_control.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/multiple_joint_angle_control.dir/build.make CMakeFiles/multiple_joint_angle_control.dir/src/multiple_joint_angle_control.cpp.i
-.PHONY : src/multiple_joint_angle_control.cpp.i
-
-src/multiple_joint_angle_control.s: src/multiple_joint_angle_control.cpp.s
-.PHONY : src/multiple_joint_angle_control.s
-
-# target to generate assembly for a file
-src/multiple_joint_angle_control.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/multiple_joint_angle_control.dir/build.make CMakeFiles/multiple_joint_angle_control.dir/src/multiple_joint_angle_control.cpp.s
-.PHONY : src/multiple_joint_angle_control.cpp.s
+src/tester_ik.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/tester_ik.dir/build.make CMakeFiles/tester_ik.dir/src/tester_ik.cpp.s
+.PHONY : src/tester_ik.cpp.s
 
 # Help Target
 help:
@@ -369,32 +161,10 @@ help:
 	@echo "... depend"
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
-	@echo "... arm_zero_control"
-	@echo "... get_arm_joint_angle"
-	@echo "... joint_angle_control"
-	@echo "... joint_enable_control"
-	@echo "... multiple_joint_angle_control"
-	@echo "... src/arm_zero_control.o"
-	@echo "... src/arm_zero_control.i"
-	@echo "... src/arm_zero_control.s"
-	@echo "... src/get_arm_joint_angle.o"
-	@echo "... src/get_arm_joint_angle.i"
-	@echo "... src/get_arm_joint_angle.s"
-	@echo "... src/joint_angle_control.o"
-	@echo "... src/joint_angle_control.i"
-	@echo "... src/joint_angle_control.s"
-	@echo "... src/joint_enable_control.o"
-	@echo "... src/joint_enable_control.i"
-	@echo "... src/joint_enable_control.s"
-	@echo "... src/msg/ArmString_.o"
-	@echo "... src/msg/ArmString_.i"
-	@echo "... src/msg/ArmString_.s"
-	@echo "... src/msg/PubServoInfo_.o"
-	@echo "... src/msg/PubServoInfo_.i"
-	@echo "... src/msg/PubServoInfo_.s"
-	@echo "... src/multiple_joint_angle_control.o"
-	@echo "... src/multiple_joint_angle_control.i"
-	@echo "... src/multiple_joint_angle_control.s"
+	@echo "... tester_ik"
+	@echo "... src/tester_ik.o"
+	@echo "... src/tester_ik.i"
+	@echo "... src/tester_ik.s"
 .PHONY : help
 
 

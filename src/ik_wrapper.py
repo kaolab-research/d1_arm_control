@@ -82,7 +82,7 @@ class IKServer:
                     target_pos = struct.unpack('fff', data[1:13])
                     print(f"IK Request (position): {target_pos}")
 
-                    joint_angles = self.solve_ik(target_pos)
+                    joint_angles = self.solve_ik(target_pos, None)
 
                     result_angles = struct.pack('B', len(joint_angles))
                     result_angles += struct.pack(f'{len(joint_angles)}f', *joint_angles)
