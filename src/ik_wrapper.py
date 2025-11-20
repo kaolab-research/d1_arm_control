@@ -159,5 +159,5 @@ class IKServer:
         self.running = False
 
     
-ik_server = IKServer("urdf/d1_550_description.urdf")
+ik_server = IKServer("d1_550_description/urdf/d1_550_description.urdf")
 ik_server.run()
