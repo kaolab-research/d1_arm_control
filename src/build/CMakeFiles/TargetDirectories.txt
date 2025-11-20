@@ -1,7 +1,0 @@
-/Users/Sarah/Desktop/kao_lab/d1_sdk/build/CMakeFiles/joint_angle_control.dir
-/Users/Sarah/Desktop/kao_lab/d1_sdk/build/CMakeFiles/multiple_joint_angle_control.dir
-/Users/Sarah/Desktop/kao_lab/d1_sdk/build/CMakeFiles/joint_enable_control.dir
-/Users/Sarah/Desktop/kao_lab/d1_sdk/build/CMakeFiles/arm_zero_control.dir
-/Users/Sarah/Desktop/kao_lab/d1_sdk/build/CMakeFiles/get_arm_joint_angle.dir
-/Users/Sarah/Desktop/kao_lab/d1_sdk/build/CMakeFiles/edit_cache.dir
-/Users/Sarah/Desktop/kao_lab/d1_sdk/build/CMakeFiles/rebuild_cache.dir

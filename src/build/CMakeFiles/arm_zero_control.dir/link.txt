@@ -1,1 +1,0 @@
-/Library/Developer/CommandLineTools/usr/bin/c++  -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX14.2.sdk -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/arm_zero_control.dir/src/arm_zero_control.cpp.o CMakeFiles/arm_zero_control.dir/src/msg/ArmString_.cpp.o -o arm_zero_control  -lunitree_sdk2 -lddsc -lddscxx -lrt -lpthread

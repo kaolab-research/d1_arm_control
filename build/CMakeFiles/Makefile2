@@ -54,28 +54,20 @@ RM = /usr/local/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /Users/Sarah/Desktop/kao_lab/d1_sdk
+CMAKE_SOURCE_DIR = /Users/Sarah/Desktop/kao_lab/d1_arm_cart_ctrl
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /Users/Sarah/Desktop/kao_lab/d1_sdk/build
+CMAKE_BINARY_DIR = /Users/Sarah/Desktop/kao_lab/d1_arm_cart_ctrl/build
 
 #=============================================================================
 # Directory level rules for the build root directory
 
 # The main recursive "all" target.
-all: CMakeFiles/joint_angle_control.dir/all
-all: CMakeFiles/multiple_joint_angle_control.dir/all
-all: CMakeFiles/joint_enable_control.dir/all
-all: CMakeFiles/arm_zero_control.dir/all
-all: CMakeFiles/get_arm_joint_angle.dir/all
+all: CMakeFiles/tester_ik.dir/all
 .PHONY : all
 
 # The main recursive "codegen" target.
-codegen: CMakeFiles/joint_angle_control.dir/codegen
-codegen: CMakeFiles/multiple_joint_angle_control.dir/codegen
-codegen: CMakeFiles/joint_enable_control.dir/codegen
-codegen: CMakeFiles/arm_zero_control.dir/codegen
-codegen: CMakeFiles/get_arm_joint_angle.dir/codegen
+codegen: CMakeFiles/tester_ik.dir/codegen
 .PHONY : codegen
 
 # The main recursive "preinstall" target.
@@ -83,172 +75,40 @@ preinstall:
 .PHONY : preinstall
 
 # The main recursive "clean" target.
-clean: CMakeFiles/joint_angle_control.dir/clean
-clean: CMakeFiles/multiple_joint_angle_control.dir/clean
-clean: CMakeFiles/joint_enable_control.dir/clean
-clean: CMakeFiles/arm_zero_control.dir/clean
-clean: CMakeFiles/get_arm_joint_angle.dir/clean
+clean: CMakeFiles/tester_ik.dir/clean
 .PHONY : clean
 
 #=============================================================================
-# Target rules for target CMakeFiles/joint_angle_control.dir
+# Target rules for target CMakeFiles/tester_ik.dir
 
 # All Build rule for target.
-CMakeFiles/joint_angle_control.dir/all:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/joint_angle_control.dir/build.make CMakeFiles/joint_angle_control.dir/depend
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/joint_angle_control.dir/build.make CMakeFiles/joint_angle_control.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/Sarah/Desktop/kao_lab/d1_sdk/build/CMakeFiles --progress-num=8,9,10 "Built target joint_angle_control"
-.PHONY : CMakeFiles/joint_angle_control.dir/all
+CMakeFiles/tester_ik.dir/all:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/tester_ik.dir/build.make CMakeFiles/tester_ik.dir/depend
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/tester_ik.dir/build.make CMakeFiles/tester_ik.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/Sarah/Desktop/kao_lab/d1_arm_cart_ctrl/build/CMakeFiles --progress-num=1,2 "Built target tester_ik"
+.PHONY : CMakeFiles/tester_ik.dir/all
 
 # Build rule for subdir invocation for target.
-CMakeFiles/joint_angle_control.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /Users/Sarah/Desktop/kao_lab/d1_sdk/build/CMakeFiles 3
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/joint_angle_control.dir/all
-	$(CMAKE_COMMAND) -E cmake_progress_start /Users/Sarah/Desktop/kao_lab/d1_sdk/build/CMakeFiles 0
-.PHONY : CMakeFiles/joint_angle_control.dir/rule
+CMakeFiles/tester_ik.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/Sarah/Desktop/kao_lab/d1_arm_cart_ctrl/build/CMakeFiles 2
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/tester_ik.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/Sarah/Desktop/kao_lab/d1_arm_cart_ctrl/build/CMakeFiles 0
+.PHONY : CMakeFiles/tester_ik.dir/rule
 
 # Convenience name for target.
-joint_angle_control: CMakeFiles/joint_angle_control.dir/rule
-.PHONY : joint_angle_control
+tester_ik: CMakeFiles/tester_ik.dir/rule
+.PHONY : tester_ik
 
 # codegen rule for target.
-CMakeFiles/joint_angle_control.dir/codegen:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/joint_angle_control.dir/build.make CMakeFiles/joint_angle_control.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/Sarah/Desktop/kao_lab/d1_sdk/build/CMakeFiles --progress-num=8,9,10 "Finished codegen for target joint_angle_control"
-.PHONY : CMakeFiles/joint_angle_control.dir/codegen
+CMakeFiles/tester_ik.dir/codegen:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/tester_ik.dir/build.make CMakeFiles/tester_ik.dir/codegen
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/Sarah/Desktop/kao_lab/d1_arm_cart_ctrl/build/CMakeFiles --progress-num=1,2 "Finished codegen for target tester_ik"
+.PHONY : CMakeFiles/tester_ik.dir/codegen
 
 # clean rule for target.
-CMakeFiles/joint_angle_control.dir/clean:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/joint_angle_control.dir/build.make CMakeFiles/joint_angle_control.dir/clean
-.PHONY : CMakeFiles/joint_angle_control.dir/clean
-
-#=============================================================================
-# Target rules for target CMakeFiles/multiple_joint_angle_control.dir
-
-# All Build rule for target.
-CMakeFiles/multiple_joint_angle_control.dir/all:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/multiple_joint_angle_control.dir/build.make CMakeFiles/multiple_joint_angle_control.dir/depend
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/multiple_joint_angle_control.dir/build.make CMakeFiles/multiple_joint_angle_control.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/Sarah/Desktop/kao_lab/d1_sdk/build/CMakeFiles --progress-num=14,15,16 "Built target multiple_joint_angle_control"
-.PHONY : CMakeFiles/multiple_joint_angle_control.dir/all
-
-# Build rule for subdir invocation for target.
-CMakeFiles/multiple_joint_angle_control.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /Users/Sarah/Desktop/kao_lab/d1_sdk/build/CMakeFiles 3
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/multiple_joint_angle_control.dir/all
-	$(CMAKE_COMMAND) -E cmake_progress_start /Users/Sarah/Desktop/kao_lab/d1_sdk/build/CMakeFiles 0
-.PHONY : CMakeFiles/multiple_joint_angle_control.dir/rule
-
-# Convenience name for target.
-multiple_joint_angle_control: CMakeFiles/multiple_joint_angle_control.dir/rule
-.PHONY : multiple_joint_angle_control
-
-# codegen rule for target.
-CMakeFiles/multiple_joint_angle_control.dir/codegen:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/multiple_joint_angle_control.dir/build.make CMakeFiles/multiple_joint_angle_control.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/Sarah/Desktop/kao_lab/d1_sdk/build/CMakeFiles --progress-num=14,15,16 "Finished codegen for target multiple_joint_angle_control"
-.PHONY : CMakeFiles/multiple_joint_angle_control.dir/codegen
-
-# clean rule for target.
-CMakeFiles/multiple_joint_angle_control.dir/clean:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/multiple_joint_angle_control.dir/build.make CMakeFiles/multiple_joint_angle_control.dir/clean
-.PHONY : CMakeFiles/multiple_joint_angle_control.dir/clean
-
-#=============================================================================
-# Target rules for target CMakeFiles/joint_enable_control.dir
-
-# All Build rule for target.
-CMakeFiles/joint_enable_control.dir/all:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/joint_enable_control.dir/build.make CMakeFiles/joint_enable_control.dir/depend
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/joint_enable_control.dir/build.make CMakeFiles/joint_enable_control.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/Sarah/Desktop/kao_lab/d1_sdk/build/CMakeFiles --progress-num=11,12,13 "Built target joint_enable_control"
-.PHONY : CMakeFiles/joint_enable_control.dir/all
-
-# Build rule for subdir invocation for target.
-CMakeFiles/joint_enable_control.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /Users/Sarah/Desktop/kao_lab/d1_sdk/build/CMakeFiles 3
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/joint_enable_control.dir/all
-	$(CMAKE_COMMAND) -E cmake_progress_start /Users/Sarah/Desktop/kao_lab/d1_sdk/build/CMakeFiles 0
-.PHONY : CMakeFiles/joint_enable_control.dir/rule
-
-# Convenience name for target.
-joint_enable_control: CMakeFiles/joint_enable_control.dir/rule
-.PHONY : joint_enable_control
-
-# codegen rule for target.
-CMakeFiles/joint_enable_control.dir/codegen:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/joint_enable_control.dir/build.make CMakeFiles/joint_enable_control.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/Sarah/Desktop/kao_lab/d1_sdk/build/CMakeFiles --progress-num=11,12,13 "Finished codegen for target joint_enable_control"
-.PHONY : CMakeFiles/joint_enable_control.dir/codegen
-
-# clean rule for target.
-CMakeFiles/joint_enable_control.dir/clean:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/joint_enable_control.dir/build.make CMakeFiles/joint_enable_control.dir/clean
-.PHONY : CMakeFiles/joint_enable_control.dir/clean
-
-#=============================================================================
-# Target rules for target CMakeFiles/arm_zero_control.dir
-
-# All Build rule for target.
-CMakeFiles/arm_zero_control.dir/all:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/arm_zero_control.dir/build.make CMakeFiles/arm_zero_control.dir/depend
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/arm_zero_control.dir/build.make CMakeFiles/arm_zero_control.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/Sarah/Desktop/kao_lab/d1_sdk/build/CMakeFiles --progress-num=1,2,3 "Built target arm_zero_control"
-.PHONY : CMakeFiles/arm_zero_control.dir/all
-
-# Build rule for subdir invocation for target.
-CMakeFiles/arm_zero_control.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /Users/Sarah/Desktop/kao_lab/d1_sdk/build/CMakeFiles 3
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/arm_zero_control.dir/all
-	$(CMAKE_COMMAND) -E cmake_progress_start /Users/Sarah/Desktop/kao_lab/d1_sdk/build/CMakeFiles 0
-.PHONY : CMakeFiles/arm_zero_control.dir/rule
-
-# Convenience name for target.
-arm_zero_control: CMakeFiles/arm_zero_control.dir/rule
-.PHONY : arm_zero_control
-
-# codegen rule for target.
-CMakeFiles/arm_zero_control.dir/codegen:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/arm_zero_control.dir/build.make CMakeFiles/arm_zero_control.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/Sarah/Desktop/kao_lab/d1_sdk/build/CMakeFiles --progress-num=1,2,3 "Finished codegen for target arm_zero_control"
-.PHONY : CMakeFiles/arm_zero_control.dir/codegen
-
-# clean rule for target.
-CMakeFiles/arm_zero_control.dir/clean:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/arm_zero_control.dir/build.make CMakeFiles/arm_zero_control.dir/clean
-.PHONY : CMakeFiles/arm_zero_control.dir/clean
-
-#=============================================================================
-# Target rules for target CMakeFiles/get_arm_joint_angle.dir
-
-# All Build rule for target.
-CMakeFiles/get_arm_joint_angle.dir/all:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/get_arm_joint_angle.dir/build.make CMakeFiles/get_arm_joint_angle.dir/depend
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/get_arm_joint_angle.dir/build.make CMakeFiles/get_arm_joint_angle.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/Sarah/Desktop/kao_lab/d1_sdk/build/CMakeFiles --progress-num=4,5,6,7 "Built target get_arm_joint_angle"
-.PHONY : CMakeFiles/get_arm_joint_angle.dir/all
-
-# Build rule for subdir invocation for target.
-CMakeFiles/get_arm_joint_angle.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /Users/Sarah/Desktop/kao_lab/d1_sdk/build/CMakeFiles 4
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/get_arm_joint_angle.dir/all
-	$(CMAKE_COMMAND) -E cmake_progress_start /Users/Sarah/Desktop/kao_lab/d1_sdk/build/CMakeFiles 0
-.PHONY : CMakeFiles/get_arm_joint_angle.dir/rule
-
-# Convenience name for target.
-get_arm_joint_angle: CMakeFiles/get_arm_joint_angle.dir/rule
-.PHONY : get_arm_joint_angle
-
-# codegen rule for target.
-CMakeFiles/get_arm_joint_angle.dir/codegen:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/get_arm_joint_angle.dir/build.make CMakeFiles/get_arm_joint_angle.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/Sarah/Desktop/kao_lab/d1_sdk/build/CMakeFiles --progress-num=4,5,6,7 "Finished codegen for target get_arm_joint_angle"
-.PHONY : CMakeFiles/get_arm_joint_angle.dir/codegen
-
-# clean rule for target.
-CMakeFiles/get_arm_joint_angle.dir/clean:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/get_arm_joint_angle.dir/build.make CMakeFiles/get_arm_joint_angle.dir/clean
-.PHONY : CMakeFiles/get_arm_joint_angle.dir/clean
+CMakeFiles/tester_ik.dir/clean:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/tester_ik.dir/build.make CMakeFiles/tester_ik.dir/clean
+.PHONY : CMakeFiles/tester_ik.dir/clean
 
 #=============================================================================
 # Special targets to cleanup operation of make.
