@@ -6,6 +6,9 @@
 #include <chrono>
 #include <string>
 #include <vector>
+#include <fstream> 
+#include <sstream>
+#include <thread> 
 
 using namespace unitree::robot;
 using namespace unitree::common;
@@ -78,9 +81,40 @@ public:
     }
 };
 
+bool parse_position(const std::string& line, float target_pos[3], float target_orientation[4], bool& has_orientation) {
+    std::stringstream ss(line); 
 
-int main()
+    if (!(ss >> target_pos[0] >> target_pos[1] >> target_pos[2])) {
+        std::cerr << "Error: Unable to extract position information from line" << std::endl;
+        return false; 
+    }
+
+    has_orientation = false; 
+    if (ss >> target_orientation[0] >> target_orientation[1] >> target_orientation[2] >> target_orientation[3]) {
+        has_orientation = true; 
+        std::cout << "Orientation found: [" << target_orientation[0] << target_orientation[1] << target_orientation[2] << target_orientation[3] << "]" << std::endl;
+    }
+
+    return true; 
+}
+
+
+int main(int argc, char** argv)
 {
+    if (argc < 2) {
+        std::cerr << "Usage: " << argv[0] << " <command_file>" << std::endl;
+        std::cerr << "Example: " << argv[0] << " motions.txt" << std::endl;
+        return 1;
+    }
+
+    std::string filename = argv[1];
+    std::ifstream file(filename); 
+
+    if (!file.is_open()) {
+        std::cerr << "Error: File not found - " << filename << std::endl;
+        return 1; 
+    }
+
     /* Setup IK Client for Server Connection */
     IKClient ik_client;
     if (!ik_client.connect()) {
@@ -107,19 +141,66 @@ int main()
     }
     joint_controller.enable_joint_control(); 
     
-    float target_pos[3] = {0.0f, 0.0f, 0.0f}; 
-    std::vector<float> joint_angles; 
 
-    /* Command Joint Position to D1 Arm */
-    auto start = std::chrono::high_resolution_clock::now();
-    if (ik_client.solve_ik(target_pos, joint_angles)) {
-        std::cout << "IK Solved!" << std::endl; 
-        auto end = std::chrono::high_resolution_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start); 
+    std::string line; 
+    int line_num = 0; 
+    int command_num = 0; 
+
+    while(std::getline(file, line)) {
+        line_num++; 
+
+        if(line.empty() || line[0] == '#') {
+            continue;
+        }
+
+        command_num++; 
+        std::cout << "\n=== Command " << command_num << " ===" << std::endl;
+
+        float target_pos[3]; 
+        float target_orientation[4];
+        bool has_orientation; 
         
-        std::cout << "IK Solved in " << duration.count() << "ms" << std::endl; 
-        joint_controller.set_all_joint_angles(joint_angles, 0);
-    } else {
-        std::cerr << "IK Failed!" << std::endl; 
+        if (!parse_position(line, target_pos, target_orientation, has_orientation)) {
+            std::cerr << "Skipping line " << line_num << std::endl;
+            continue; 
+        }
+
+        std::cout << "Target position: [" << target_pos[0] << ", " 
+                  << target_pos[1] << ", " << target_pos[2] << "]" << std::endl;
+
+        std::vector<float> joint_angles; 
+
+        auto start = std::chrono::high_resolution_clock::now();
+        if (has_orientation) {
+            if (ik_client.solve_ik(target_pos, target_orientation, joint_angles)) {
+                std::cout << "IK Solved!" << std::endl; 
+                auto end = std::chrono::high_resolution_clock::now();
+                auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start); 
+                
+                std::cout << "IK Solved in " << duration.count() << "ms" << std::endl; 
+                joint_controller.set_all_joint_angles(joint_angles, 0);
+            } else {
+                std::cerr << "IK Failed!" << std::endl; 
+            }
+        } else {
+            if (ik_client.solve_ik(target_pos, joint_angles)) {
+                std::cout << "IK Solved!" << std::endl; 
+                auto end = std::chrono::high_resolution_clock::now();
+                auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start); 
+                
+                std::cout << "IK Solved in " << duration.count() << "ms" << std::endl; 
+                joint_controller.set_all_joint_angles(joint_angles, 0);
+            } else {
+                std::cerr << "IK Failed!" << std::endl; 
+            }
+        }
+
+        std::cout << "Waiting 2 seconds before next command..." << std::endl;
+        std::this_thread::sleep_for(std::chrono::seconds(2));
+        
     }
+
+    file.close(); 
+    std::cout << "\n === Sequence Complete === " << std::endl; 
+    return 0; 
 }
