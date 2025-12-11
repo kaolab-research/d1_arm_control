@@ -6,13 +6,17 @@ import struct
 import math
 import signal 
 import sys
+import time
+from scipy.spatial.transform import Rotation as R
 
+from oculus_reader_repo.oculus_reader.reader import OculusReader
 
 class IKServer:
-    def __init__(self, urdf_path, host='0.0.0.0', port=5555, verbose=True):
+    def __init__(self, urdf_path, host='0.0.0.0', port=5555, oculus_mode=True, verbose=True):
         self.host = host
         self.port = port
         self.running = True
+        self.oculus_mode = oculus_mode
         self.verbose = verbose
     
         self.p_id = p.connect(p.DIRECT)
@@ -37,6 +41,10 @@ class IKServer:
         
         if self.verbose:
             print("IK Server Successfully Initialized")
+
+        self.oculus_reader = OculusReader()
+        if self.verbose:
+            print("Oculus Reader Initialized, Now Reading")
     
     def solve_ik(self, target_position, target_orientation): 
         if target_orientation is None: 
@@ -141,7 +149,10 @@ class IKServer:
             while self.running:
                 try:
                     conn, addr = server.accept()
-                    self.handle_client(conn, addr)
+                    if self.oculus_mode:
+                        self.run_oculus(conn, addr)
+                    else: 
+                        self.handle_client(conn, addr)
                 except socket.timeout:
                     continue
                 except Exception as e: 
@@ -158,6 +169,53 @@ class IKServer:
         print("/n/nShutting Down Server...")
         self.running = False
 
-    
+    def run_oculus(self, conn, addr, num_wait_sec=5, hz=50):
+        print("Reading Values from Quest Controller")
+        print(f"Connected: {addr}")
+        while(True): 
+            time.sleep(1/hz)
+            time_since_read = time.time()
+            poses, buttons = self.oculus_reader.get_transformations_and_buttons()
+            
+            if 'r' in poses:
+                poses = poses['r']
+            else:
+                continue
+
+            if self.verbose: 
+                print(f"Poses: {poses}")
+                print(f"Buttons: {buttons}")
+
+            target_pos, target_orientation = IKServer.convert_pose_to_pos_quat(poses)
+            joint_angles = self.solve_ik(target_pos, target_orientation)
+
+            result_angles = struct.pack('B', len(joint_angles))
+            result_angles += struct.pack(f'{len(joint_angles)}f', *joint_angles)
+            conn.send(result_angles)
+            print(f"Calculated Angles: {[f'{a:.3f}' for a in joint_angles]}")
+                
+    @staticmethod
+    def convert_pose_to_pos_quat(T):
+        """
+        T: 4x4 numpy transform matrix
+        returns:
+            position: [x, y, z]
+            quaternion: [qx, qy, qz, qw]
+        """
+        # Translation is last column (first 3 rows)
+        pos = T[:3, 3]
+
+        # Rotation is upper-left 3×3
+        rot_mat = T[:3, :3]
+
+        print("pos: ", pos)
+        print("rot_mat: ", rot_mat)
+
+        # Convert to quaternion
+        quat = R.from_matrix(rot_mat).as_quat()  
+        # SciPy returns quaternions as [x, y, z, w]
+
+        return pos.tolist(), quat.tolist()
+
 ik_server = IKServer("d1_550_description/urdf/d1_550_description.urdf")
 ik_server.run()

@@ -86,12 +86,12 @@ class IKClient {
             buffer[0] = 1; /* Set first byte to position only command (1) */
             memcpy(&buffer[1], target_pos, 3 * sizeof(float)); /* Set next bytes to target position */
 
-            ssize_t sent = send(m_sock, buffer, 13, 0); 
-            if (sent != 13) {
-                std::cerr << "Failed to send IK request" << std::endl; 
-                disconnect(); 
-                return false; 
-            }
+            // ssize_t sent = send(m_sock, buffer, 13, 0); 
+            // if (sent != 13) {
+            //     std::cerr << "Failed to send IK request" << std::endl; 
+            //     disconnect(); 
+            //     return false; 
+            // }
 
             ssize_t received = recv(m_sock, buffer, sizeof(buffer), 0);
             if (received < 1) {

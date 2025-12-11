@@ -1,4 +1,4 @@
-from oculus_reader import OculusReader
+from oculus_reader_repo import OculusReader
 
 def main():
     import argparse
