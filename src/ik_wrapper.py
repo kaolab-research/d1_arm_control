@@ -174,11 +174,14 @@ class IKServer:
         self.running = False
 
     def run_oculus(self, conn, addr, num_wait_sec=5, hz=50):
-        print("Reading Values from Quest Controller")
-        # print(f"Connected: {addr}")
+        if self.verbose:
+            print("Reading Values from Quest Controller")
+            print(f"Connected: {addr}")
+
+        prev_button_state = False
+
         while(True): 
             time.sleep(1/hz)
-            time_since_read = time.time()
             poses, buttons = self.oculus_reader.get_transformations_and_buttons()
             
             if 'r' in poses:
@@ -188,6 +191,11 @@ class IKServer:
 
             # only update the position of the arm if button A is pressed on the controller
             select_position = buttons['A']
+            button_just_pressed = select_position and not prev_button_state
+            
+            if button_just_pressed: 
+                print("Button Just Pressed!")
+
             if select_position: 
                 target_pos, target_orientation = IKServer.convert_pose_to_pos_quat(poses)
                 joint_angles = self.solve_ik(target_pos, target_orientation)
@@ -197,6 +205,8 @@ class IKServer:
                 conn.send(result_angles)
                 print(f"Calculated Angles: {[f'{a:.3f}' for a in joint_angles]}")
 
+            prev_button_state = select_position
+            
             if self.verbose: 
                 print(f"Poses: {poses}")
                 print(f"Buttons: {buttons}")
