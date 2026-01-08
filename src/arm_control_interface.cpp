@@ -22,7 +22,11 @@ const std::string TOPIC_S = "current_servo_angle";
 class D1ArmController
 {
 public: 
-    D1ArmController(): publisher(nullptr), initialized(false) {}
+    D1ArmController(): 
+        publisher(nullptr), 
+        initialized(false),
+        has_servo_data_(false) 
+        {}
 
     ~D1ArmController() {}
 
@@ -118,7 +122,7 @@ private:
     
     std::mutex servo_mutex_; 
     unitree_arm::msg::dds_::PubServoInfo_ latest_servo_data_; 
-    bool has_servo_data_ = false; 
+    bool has_servo_data_; 
     
     bool initialized; 
 };
@@ -177,6 +181,7 @@ int main(int argc, char** argv)
         } else {
             std::cerr << "IK Failed!" << std::endl; 
         }
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
     return 0; 
 }
