@@ -1,6 +1,7 @@
 #include <unitree/robot/channel/channel_publisher.hpp>
 #include <unitree/common/time/time_tool.hpp>
 #include "msg/ArmString_.hpp"
+#include "msg/PubServoInfo_.hpp"
 #include "ik_client.hpp"
 #include <iostream>
 #include <chrono>
@@ -9,33 +10,33 @@
 #include <fstream> 
 #include <sstream>
 #include <thread> 
+#include <mutex> 
+#include <memory>
 
 using namespace unitree::robot;
 using namespace unitree::common;
 
-const std::string TOPIC = "rt/arm_Command";
+const std::string TOPIC_P = "rt/arm_Command";
+const std::string TOPIC_S = "current_servo_angle";
 
 class D1ArmController
 {
-private: 
-    ChannelPublisher<unitree_arm::msg::dds_::ArmString_>* publisher;
-    bool initialized; 
-
 public: 
-    D1ArmController(): publisher(nullptr), initialized(false) {
-    }
+    D1ArmController(): publisher(nullptr), initialized(false) {}
 
-    ~D1ArmController() {
-        if (publisher) {
-            delete publisher; 
-        }
-    }
+    ~D1ArmController() {}
 
     bool init() {
         try {
             ChannelFactory::Instance()->Init(0);
-            publisher = new ChannelPublisher<unitree_arm::msg::dds_::ArmString_>(TOPIC);
+            publisher = new ChannelPublisher<unitree_arm::msg::dds_::ArmString_>(TOPIC_P);
             publisher->InitChannel();
+
+            subscriber = new ChannelSubscriber<unitree_arm::msg::dds_::PubServoInfo_>(TOPIC_S);
+            subscriber->InitChannel([this](const void* msg) {
+                this->servo_handler(msg);
+            });
+
             initialized = true;
             return true;
         } catch (const std::exception& e) {
@@ -79,6 +80,47 @@ public:
         }
         return false; 
     }
+
+    bool get_joint_angles(std::vector<float>& joint_angles) 
+    {
+        std::lock_guard<std::mutex> lock(servo_mutex_); 
+
+        if (!has_servo_data_)
+            return false;
+
+        joint_angles = {
+            latest_servo_data_.servo0_data_(),
+            latest_servo_data_.servo1_data_(),
+            latest_servo_data_.servo2_data_(),
+            latest_servo_data_.servo3_data_(),
+            latest_servo_data_.servo4_data_(),
+            latest_servo_data_.servo5_data_(),
+            latest_servo_data_.servo6_data_(),
+        };
+
+        return true;
+    }
+
+private: 
+    void servo_handler(const void* msg) 
+    {
+        std::lock_guard<std::mutex> lock(servo_mutex_);
+
+        const unitree_arm::msg::dds_::PubServoInfo_* pm = 
+            (const unitree_arm::msg::dds_::PubServoInfo_*)msg;
+
+        latest_servo_data_ = *pm; 
+        has_servo_data_ = true; 
+    }
+
+    std::unique_ptr<ChannelPublisher<unitree_arm::msg::dds_::ArmString_>> publisher;
+    std::unique_ptr<ChannelSubscriber<unitree_arm::msg::dds_::PubServoInfo_>> subscriber;
+    
+    std::mutex servo_mutex_; 
+    unitree_arm::msg::dds_::PubServoInfo_ latest_servo_data_; 
+    bool has_servo_data_ = false; 
+    
+    bool initialized; 
 };
 
 bool parse_position(const std::string& line, float target_pos[3], float target_orientation[4], bool& has_orientation) {

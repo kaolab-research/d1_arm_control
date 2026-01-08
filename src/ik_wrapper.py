@@ -7,6 +7,7 @@ import math
 import signal 
 import sys
 import time
+import csv
 from scipy.spatial.transform import Rotation as R
 
 from oculus_reader_repo.oculus_reader.reader import OculusReader
@@ -150,10 +151,13 @@ class IKServer:
                 try:
                     conn, addr = server.accept()
                     if self.oculus_mode:
+                        print("Run Oculus")
                         self.run_oculus(conn, addr)
                     else: 
+                        print("Handle Client")
                         self.handle_client(conn, addr)
                 except socket.timeout:
+                    print("Socket timeout")
                     continue
                 except Exception as e: 
                     if self.running: 
@@ -171,7 +175,7 @@ class IKServer:
 
     def run_oculus(self, conn, addr, num_wait_sec=5, hz=50):
         print("Reading Values from Quest Controller")
-        print(f"Connected: {addr}")
+        # print(f"Connected: {addr}")
         while(True): 
             time.sleep(1/hz)
             time_since_read = time.time()
@@ -182,18 +186,21 @@ class IKServer:
             else:
                 continue
 
+            # only update the position of the arm if button A is pressed on the controller
+            select_position = buttons['A']
+            if select_position: 
+                target_pos, target_orientation = IKServer.convert_pose_to_pos_quat(poses)
+                joint_angles = self.solve_ik(target_pos, target_orientation)
+
+                result_angles = struct.pack('B', len(joint_angles))
+                result_angles += struct.pack(f'{len(joint_angles)}f', *joint_angles)
+                conn.send(result_angles)
+                print(f"Calculated Angles: {[f'{a:.3f}' for a in joint_angles]}")
+
             if self.verbose: 
                 print(f"Poses: {poses}")
                 print(f"Buttons: {buttons}")
 
-            target_pos, target_orientation = IKServer.convert_pose_to_pos_quat(poses)
-            joint_angles = self.solve_ik(target_pos, target_orientation)
-
-            result_angles = struct.pack('B', len(joint_angles))
-            result_angles += struct.pack(f'{len(joint_angles)}f', *joint_angles)
-            conn.send(result_angles)
-            print(f"Calculated Angles: {[f'{a:.3f}' for a in joint_angles]}")
-                
     @staticmethod
     def convert_pose_to_pos_quat(T):
         """
