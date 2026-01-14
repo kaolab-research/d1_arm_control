@@ -28,7 +28,7 @@ int main()
 
     /* Command Joint Position to D1 Arm */
     auto start = std::chrono::high_resolution_clock::now();
-    if (ik_client.solve_ik(target_pos, joint_angles)) {
+    if (ik_client.handle_request(target_pos, joint_angles)) {
         std::cout << "IK Solved!" << std::endl; 
         auto end = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start); 
