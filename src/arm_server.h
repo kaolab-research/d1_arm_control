@@ -14,21 +14,18 @@ class ArmServer
 {
 public: 
     ArmServer(const std::string& host="192.168.123.10", int port=5555)
-    : host_(host), port_(port), sock_(-1), connected_(false) {}
-    ~ArmServer() { disconnect(); }
+    : host_(host), port_(port), client_sock_(-1), server_sock_(-1), listening_(false) {}
 
-    bool connect();
-    void disconnect();
+    bool start_listening();
+    bool accept_connection();
     bool handle_request(D1ArmController& controller);
-
-    bool is_connected() { return connected_; }
-
 
 private: 
     std::string host_;
     int port_; 
-    int sock_; 
-    bool connected_; 
+    int server_sock_; 
+    int client_sock_;
+    bool listening_; 
 };
 
 #endif // ARM_SERVER_H

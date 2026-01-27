@@ -2,6 +2,7 @@
 #define ARM_CONTROL_INTERFACE_H
 
 #include <unitree/robot/channel/channel_publisher.hpp>
+#include <unitree/robot/channel/channel_subscriber.hpp>
 #include <unitree/common/time/time_tool.hpp>
 #include "msg/ArmString_.hpp"
 #include "msg/PubServoInfo_.hpp"

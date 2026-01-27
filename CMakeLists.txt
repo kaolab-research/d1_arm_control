@@ -6,7 +6,10 @@ SET(CMAKE_CXX_STANDARD 17)
 include_directories(/usr/local/include/ddscxx /usr/local/include/iceoryx/v2.0.2)
 link_libraries(unitree_sdk2 ddsc ddscxx rt pthread)
 
-add_executable(arm_control_interface 
-    src/arm_control_interface.cpp 
+add_executable(arm_controller 
+    src/main.cpp
+    src/arm_controller.cpp 
+    src/arm_server.cpp
     src/msg/ArmString_.cpp
+    src/msg/PubServoInfo_.cpp
 )
