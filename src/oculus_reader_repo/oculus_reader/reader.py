@@ -1,5 +1,5 @@
-from oculus_reader.FPS_counter import FPSCounter
-from oculus_reader.buttons_parser import parse_buttons
+from .FPS_counter import FPSCounter
+from .buttons_parser import parse_buttons
 import numpy as np
 import threading
 import time

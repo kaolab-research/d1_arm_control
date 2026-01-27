@@ -14,7 +14,7 @@ from oculus_reader_repo.oculus_reader.reader import OculusReader
 
 NORMAL = 0 
 DEBUG = 1
-MODE = DEBUG 
+MODE = NORMAL 
 
 
 MSG_REQUEST_ANGLES = 0
@@ -24,7 +24,7 @@ MSG_PING = 3
 class ArmClient: 
     """ Handle Communication to C++ Arm Control Interface """
 
-    def __init__(self, host='0.0.0.0', port=5555):
+    def __init__(self, host='192.168.123.18', port=5555):
         self.host = host
         self.port = port
         self.sock = None 
@@ -112,6 +112,31 @@ class TeleopController:
 
         # Button State Tracking 
         self.prev_button_state = False
+
+        # Coordinate frame transformation
+        self.setup_coordinate_transform()
+
+    def setup_coordinate_transform(self):
+        """
+        Transform from Quest frame to D1 Arm Frame 
+
+        Quest Controller: +X=Left, +Y=Up, +Z=Forward
+        D1 Robot (dog): +X=Forward, +Y=Left, +Z=Up 
+
+        Mapping: 
+        - Robot X (forward) = Quest Z 
+        - Robot Y (left) = Quest X
+        - Robot Z (up) = Quest Y
+        """
+
+        self.transform_matrix = np.array([
+            [0, 0, 1],
+            [1, 0, 0],
+            [0, 1, 0],
+        ])
+        self.position_scale = 1.0
+
+        self.frame_rotation = R.from_matrix(self.transform_matrix)
     
     def quaternion_multiply(self, q1, q2):
         """ Multiply 2 Quaternions [x, y, z, w]"""
@@ -130,6 +155,26 @@ class TeleopController:
         x, y, z, w = q 
         return np.array([-x, -y, -z, w])
     
+    def transform_controller_to_robot(self, controller_pos):
+        """ Transform controller position to robot coordinate frame """
+        robot_pos = self.transform_matrix @ np.array(controller_pos)
+        robot_pos = robot_pos * self.position_scale
+        return robot_pos
+    
+    def transform_orientation_to_robot(self, controller_quat):
+        """ 
+        Transform controller orientation to robot coordinate frame 
+        
+        Args: 
+            controller_quat: [x, y, z, w] in Quest frame 
+        
+        Returns: 
+            [x, y, z, w] in Robot frame 
+        """
+        controller_rot = R.from_quat(controller_quat)
+        robot_rot = self.frame_rotation * controller_rot
+        return robot_rot.as_quat()
+
     def calculate_orientation_offset(self, controller_q, arm_q):
         """ Calculate relative orientation between controller and robotic arm. 
             offset = robot * inverse(controller) 
@@ -160,9 +205,13 @@ class TeleopController:
         print(f"Current arm angles: {[f'{a:.3f}' for a in current_angles]}")
 
         current_pos, current_q = self.ik_server.forward_kinematics(current_angles)
+        
+        # Transform controller pos to robot frame
+        controller_pos_robot = self.transform_controller_to_robot(controller_pos)
+        controller_q_robot = self.transform_orientation_to_robot(controller_q)
 
-        self.position_offset = np.array(current_pos) - np.array(controller_pos)
-        self.orientation_offset = self.calculate_orientation_offset(controller_q, current_q)
+        self.position_offset = np.array(current_pos) - controller_pos_robot
+        self.orientation_offset = self.calculate_orientation_offset(controller_q_robot, current_q)
 
         print(f"\nPosition offset: [{self.position_offset[0]:.3f}, {self.position_offset[1]:.3f}, {self.position_offset[2]:.3f}]")
         print(f"Orientation offset: [{self.orientation_offset[0]:.3f}, {self.orientation_offset[1]:.3f}, {self.orientation_offset[2]:.3f}, {self.orientation_offset[3]:.3f}]")
@@ -182,8 +231,11 @@ class TeleopController:
                 return False
             
         if button_pressed and self.position_offset is not None: 
-            target_pos = np.array(controller_pos) + self.position_offset
-            target_quat = self.apply_orientation_offset(controller_q)
+            controller_pos_robot = self.transform_controller_to_robot(controller_pos)
+            controller_q_robot = self.transform_orientation_to_robot(controller_q)
+
+            target_pos = controller_pos_robot + self.position_offset
+            target_quat = self.apply_orientation_offset(controller_q_robot)
 
             joint_angles = self.ik_server.solve_ik(target_pos, target_quat)
 
@@ -349,15 +401,18 @@ if __name__ == "__main__":
 
     elif MODE == DEBUG:
         print('\n' + "="*50)
-        print("DEBUG MODE")
-        print('\n' + "="*50)
-
-        ik_server = IKServer("d1_550_description/urdf/d1_550_description.urdf")
-        arm_client = ArmClient() 
-        arm_client.connect()
-
-        print("Testing Connection...")
-        if not arm_client.ping():
-            print("Connection FAILED")
-            exit(1)
-        print("Connection Successful")
+        print("DEBUG MODE - Quest Coordinate Frame Test")
+        print("="*50)
+        
+        oculus_reader = OculusReader()
+        
+        print("\nHold the RIGHT controller in front of you, pointing forward")
+        print("Press Enter when ready...")
+        input()
+        
+        for i in range(5):
+            poses, buttons = oculus_reader.get_transformations_and_buttons()
+            if 'r' in poses:
+                pos, quat = convert_pose_to_pos_quat(poses['r'])
+                print(f"Sample {i+1}: Position = [{pos[0]:.3f}, {pos[1]:.3f}, {pos[2]:.3f}]")
+            time.sleep(0.2)
