@@ -66,7 +66,14 @@ bool D1ArmController::set_all_joint_angles(const std::vector<float>& joint_angle
 
     msg.data_() = cmd_msg;
     if(publisher->Write(msg)) {
-        std::cout << "Joint angles successfully commanded" << std::endl; 
+        std::cout << "Commanded: 0: " << joint_angles[0] 
+            << ", 1: " << joint_angles[1]
+            << ", 2: " << joint_angles[2]
+            << ", 3: " << joint_angles[3]
+            << ", 4: " << joint_angles[4]
+            << ", 5: " << joint_angles[5]
+            << ", Gripper: " << gripper_width
+            << joint_angles[1]<< std::endl; 
         return true;
     }
     return false; 
