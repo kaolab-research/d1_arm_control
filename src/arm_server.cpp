@@ -101,16 +101,21 @@ bool ArmServer::handle_request(D1ArmController& controller) {
         case 1: {
             /* Setting Arm Position to a Specific Joint Angle */
             uint8_t num_joints = buffer[1]; 
-            if (received < 2 + num_joints * sizeof(float)) {
+            if (received < 2 + num_joints * sizeof(float) + sizeof(float)) {
                 std::cerr << "Error: Incomplete Target Joint Angles from Python Server" << std::endl; 
                 return false; 
             }
 
             std::vector<float> joint_angles; 
-            joint_angles.resize(num_joints); 
+            joint_angles.resize(num_joints);
+            float gripper_width; 
             memcpy(joint_angles.data(), &buffer[2], num_joints * sizeof(float));
+            memcpy(gripper_width, &buffer[2 + num_joints * sizeof(float)], sizeof(float));
 
-            if (!controller.set_all_joint_angles(joint_angles, 0)) {
+            float gripper_width_command_value_mm = 65.0 * gripper_width; 
+
+            /* Eventually send gripper width over here */
+            if (!controller.set_all_joint_angles(joint_angles, gripper_width_command_value_mm)) {
                 std::cerr << "Failed to set joint angles" << std::endl;
                 send(client_sock_, "ER", 2, 0);  // ✓ Send error
                 return false;

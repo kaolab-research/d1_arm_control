@@ -83,7 +83,7 @@ class ArmClient:
             print(f"Error requesting current angles: {e}")
             return None 
     
-    def command_angles(self, joint_angles):
+    def command_angles(self, joint_angles, gripper_width):
         try:
             if len(joint_angles) > 7: 
                 print(f"Error: Too many joint angles provided for Arm Control")
@@ -92,6 +92,7 @@ class ArmClient:
             result_angles = struct.pack('B', MSG_COMMAND_ANGLES)
             result_angles += struct.pack('B', len(joint_angles))
             result_angles += struct.pack(f'{len(joint_angles)}f', *joint_angles)
+            result_angles += struct.pack('f', gripper_width)
             self.sock.send(result_angles)
 
             # Potentially Add an ack here # 
@@ -218,7 +219,7 @@ class TeleopController:
 
         return True
     
-    def update(self, controller_pos, controller_q, button_pressed):
+    def update(self, controller_pos, controller_q, button_pressed, gripper_width):
         """ Main update function - called repeatedly """
 
         button_just_pressed = button_pressed and not self.prev_button_state
@@ -244,7 +245,7 @@ class TeleopController:
                 self.prev_button_state = button_pressed
                 return False
             
-            success = self.arm_client.command_angles(joint_angles)
+            success = self.arm_client.command_angles(joint_angles, gripper_width)
 
             if success:
                 print("Commanded joint angles")
@@ -346,8 +347,9 @@ def run_oculus(ik_server, oculus_reader, arm_client, hz=100, verbose=False):
         
         # Get button state
         button_pressed = buttons.get('A', False)
+        gripper_width = buttons.get('rightTrig')
 
-        teleop.update(controller_pos, controller_quat, button_pressed)
+        teleop.update(controller_pos, controller_quat, button_pressed, gripper_width)
 
         if verbose:
             print(f"Controller pos: {controller_pos}, Button A: {button_pressed}")
@@ -410,9 +412,9 @@ if __name__ == "__main__":
         print("Press Enter when ready...")
         input()
         
-        for i in range(5):
+        # for i in range(5):
+        while True:
             poses, buttons = oculus_reader.get_transformations_and_buttons()
             if 'r' in poses:
-                pos, quat = convert_pose_to_pos_quat(poses['r'])
-                print(f"Sample {i+1}: Position = [{pos[0]:.3f}, {pos[1]:.3f}, {pos[2]:.3f}]")
+                print(f"Buttons = [{buttons}]")
             time.sleep(0.2)
