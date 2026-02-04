@@ -1,3 +1,0 @@
-/Users/Sarah/Desktop/kao_lab/d1_arm_cart_ctrl/build/CMakeFiles/tester_ik.dir
-/Users/Sarah/Desktop/kao_lab/d1_arm_cart_ctrl/build/CMakeFiles/edit_cache.dir
-/Users/Sarah/Desktop/kao_lab/d1_arm_cart_ctrl/build/CMakeFiles/rebuild_cache.dir
