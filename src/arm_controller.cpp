@@ -79,6 +79,14 @@ bool D1ArmController::set_all_joint_angles(const std::vector<float>& joint_angle
     return false; 
 }
 
+bool D1ArmController::home_joint_angles() 
+{
+    std::vector<float> joint_angles = {0, -90, 90, 90, 0, 90};
+    if (!set_all_joint_angles(joint_angles, 0))
+        return false;
+    return true; 
+}
+
 bool D1ArmController::get_joint_angles(std::vector<float>& joint_angles) 
 {
     std::lock_guard<std::mutex> lock(servo_mutex_); 

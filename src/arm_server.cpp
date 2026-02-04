@@ -70,6 +70,7 @@ bool ArmServer::handle_request(D1ArmController& controller) {
     }
 
     uint8_t request = buffer[0]; 
+    std::cerr << "Request: " << request << std::endl; 
 
     switch(request) {
         case 0: {
@@ -110,7 +111,7 @@ bool ArmServer::handle_request(D1ArmController& controller) {
             joint_angles.resize(num_joints);
             float gripper_width; 
             memcpy(joint_angles.data(), &buffer[2], num_joints * sizeof(float));
-            memcpy(gripper_width, &buffer[2 + num_joints * sizeof(float)], sizeof(float));
+            memcpy(&gripper_width, &buffer[2 + num_joints * sizeof(float)], sizeof(float));
 
             float gripper_width_command_value_mm = 65.0 * gripper_width; 
 
@@ -135,6 +136,14 @@ bool ArmServer::handle_request(D1ArmController& controller) {
             return true; 
         }
 
+        case 4: 
+            /* Reset Arm to Zero */
+            if (!controller.home_joint_angles()) {
+                std::cerr << "Failed home joint angles" << std::endl;
+                return false;
+            }
+            return true;
+            
         default: 
             std::cerr << "Unknown Request Type from Python Server: " << request << std::endl; 
             return false;

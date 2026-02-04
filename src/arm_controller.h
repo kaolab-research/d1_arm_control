@@ -29,6 +29,7 @@ public:
     bool init();
     bool enable_joint_control();
     bool set_all_joint_angles(const std::vector<float>& joint_angles, const float gripper_width);
+    bool home_joint_angles(); 
     bool get_joint_angles(std::vector<float>& joint_angles);
 
 private: 

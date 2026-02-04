@@ -14,12 +14,12 @@ from oculus_reader_repo.oculus_reader.reader import OculusReader
 
 NORMAL = 0 
 DEBUG = 1
-MODE = NORMAL 
-
+MODE = NORMAL
 
 MSG_REQUEST_ANGLES = 0
 MSG_COMMAND_ANGLES = 1
 MSG_PING = 3
+MSG_HOME_ARM = 4
 
 class ArmClient: 
     """ Handle Communication to C++ Arm Control Interface """
@@ -100,6 +100,14 @@ class ArmClient:
 
         except Exception as e: 
             print(f"Error commanding angles: {e}")
+            return False
+        
+    def home_arm(self):
+        try: 
+            self.sock.send(struct.pack('B', MSG_HOME_ARM))
+            return True
+        except Exception as e: 
+            print(f"Error homing robot arm: {e}")
             return False
 
 class TeleopController: 
@@ -212,15 +220,24 @@ class TeleopController:
         controller_q_robot = self.transform_orientation_to_robot(controller_q)
 
         self.position_offset = np.array(current_pos) - controller_pos_robot
-        self.orientation_offset = self.calculate_orientation_offset(controller_q_robot, current_q)
+        self.orientation_offset = self.calculate_orientation_offset(controller_q, current_q) # switch back to original for easier debug
 
         print(f"\nPosition offset: [{self.position_offset[0]:.3f}, {self.position_offset[1]:.3f}, {self.position_offset[2]:.3f}]")
         print(f"Orientation offset: [{self.orientation_offset[0]:.3f}, {self.orientation_offset[1]:.3f}, {self.orientation_offset[2]:.3f}, {self.orientation_offset[3]:.3f}]")
 
         return True
     
-    def update(self, controller_pos, controller_q, button_pressed, gripper_width):
+    def update(self, controller_pos, controller_q, button_pressed, gripper_width, home_pressed):
         """ Main update function - called repeatedly """
+
+        if home_pressed: 
+            success = self.arm_client.home_arm()
+            if success: 
+                print("Homing Robot Arm")
+                return True
+            else: 
+                print("Failed to Home")
+                return False
 
         button_just_pressed = button_pressed and not self.prev_button_state
 
@@ -236,7 +253,7 @@ class TeleopController:
             controller_q_robot = self.transform_orientation_to_robot(controller_q)
 
             target_pos = controller_pos_robot + self.position_offset
-            target_quat = self.apply_orientation_offset(controller_q_robot)
+            target_quat = self.apply_orientation_offset(controller_q) # switch back rotation transformation 
 
             joint_angles = self.ik_server.solve_ik(target_pos, target_quat)
 
@@ -244,7 +261,7 @@ class TeleopController:
                 print("IK solution failed")
                 self.prev_button_state = button_pressed
                 return False
-            
+
             success = self.arm_client.command_angles(joint_angles, gripper_width)
 
             if success:
@@ -262,6 +279,74 @@ class TeleopController:
 
         self.prev_button_state = button_pressed
         return True
+    
+def simple_position_teleop():
+    print("="*50)
+    print("PHASE 5: Position-Only Teleoperation")
+    print("="*50)
+    
+    ik_server = IKServer("d1_550_description/urdf/d1_550_description.urdf")
+    arm_client = ArmClient()
+    arm_client.connect()
+    oculus_reader = OculusReader()
+    
+    teleop = TeleopController(ik_server, arm_client)
+    
+    print("\nPress button A to start")
+    
+    offset = None
+    initial_arm_quat = None
+    
+    while True:
+        time.sleep(0.05)  # 20 Hz
+        
+        poses, buttons = oculus_reader.get_transformations_and_buttons()
+        
+        if 'r' not in poses:
+            continue
+        
+        pos, quat = convert_pose_to_pos_quat(poses['r'])
+        button = buttons.get('A', False)
+        
+        # Button just pressed - calibrate
+        if button and offset is None:
+            print("\n--- Calibrating ---")
+            
+            # Get current arm state
+            current_angles = arm_client.request_current_angles()
+            current_pos, initial_arm_quat = ik_server.forward_kinematics(current_angles)
+            
+            # Transform controller to robot frame
+            pos_robot = teleop.transform_controller_to_robot(pos)
+            
+            # Calculate offset
+            offset = np.array(current_pos) - np.array(pos_robot)
+            
+            print(f"Current arm: {current_pos}")
+            print(f"Controller (robot frame): {pos_robot}")
+            print(f"Offset: {offset}")
+            print("--- Ready to control ---\n")
+        
+        # Button held - control arm
+        if button and offset is not None:
+            # Transform and apply offset
+            pos_robot = teleop.transform_controller_to_robot(pos)
+            target_pos = np.array(pos_robot) + offset
+            
+            # Solve IK with FIXED orientation
+            target_angles = ik_server.solve_ik(target_pos, initial_arm_quat)
+            
+            if target_angles:
+                arm_client.command_angles(target_angles,0)
+                print(f"Target: [{target_pos[0]:.3f}, {target_pos[1]:.3f}, {target_pos[2]:.3f}]", end='\r')
+            else:
+                print("IK FAILED", end='\r')
+        
+        # Button released
+        if not button and offset is not None:
+            print("\n--- Released ---")
+            offset = None
+            initial_arm_quat = None
 
 class IKServer:
     def __init__(self, urdf_path, verbose=False):
@@ -288,6 +373,70 @@ class IKServer:
         
         self.end_effector_index = self.num_joints - 1
 
+        self.zones = {
+            'over_dog': {
+                'x_min': -0.20,
+                'x_max': 0.30,
+                'z_min': 0.15
+            }, 
+            'front': {
+                'x_min': 0.30,
+                'x_max': 0.52, 
+                'z_min': -0.07
+            },
+            'back': {
+                'x_min': -0.52, 
+                'x_max': -0.20,
+                'z_min': -0.07
+            },
+            'sides': {
+                'y_threshold': 0.1,
+                'z_min': -0.07
+            }
+        }
+
+        self.global_limits = {
+            'x_min': -0.52, 
+            'x_max': 0.52,
+            'y_min': -0.52,
+            'y_max': 0.52,
+            'z_max': 0.67
+        }
+
+        self.max_reach = 0.7
+    
+    def get_z_min_for_pos(self, x, y):
+        """
+        Calculate minimum z position for arm based on current zone
+        """
+        if x < self.zones['over_dog']['x_max'] and x > self.zones['over_dog']['x_min'] and abs(y) < self.zones['sides']['y_threshold']: 
+            return self.zones['over_dog']['z_min']
+        else: 
+            return self.zones['front']['z_min']
+        
+    def is_in_workspace(self, position, verbose=True):
+        x, y, z = position
+
+        if x < self.global_limits['x_min'] or x > self.global_limits['x_max']: 
+            if verbose: print(f"WARNING: Commanded X out of bounds - {x:.3f}")
+            return False
+        
+        if y < self.global_limits['y_min'] or y > self.global_limits['y_max']: 
+            if verbose: print(f"WARNING: Commanded Y out of bounds - {y:.3f}")
+            return False
+        
+        min_z = self.get_z_min_for_pos(x, y)
+        if z < min_z or z > self.global_limits['z_max']: 
+            if verbose: print(f"WARNING: Commanded Z out of bounds - {z:.3f}")
+            return False
+
+        distance = np.sqrt(x**2 + y**2 + z**2)
+        if distance > self.max_reach: 
+            if verbose: print(f"WARNING: Commanded position overextends arm - {distance:.3f} ")
+            return False
+    
+        return True
+
     def forward_kinematics(self, joint_angles):
         """ Compute end-effector pose from joint angles 
 
@@ -311,11 +460,21 @@ class IKServer:
     
     def solve_ik(self, target_position, target_orientation): 
         """ Calculate joint angles needed for specific position and orientation """
+        lower_limits = [-135, -90, -90, -135, -90, -135]
+        upper_limits = [135, 90, 90, 135, 90, 135]
+
+        if not self.is_in_workspace(target_position):
+            return None
+
         joint_angles = p.calculateInverseKinematics(
             self.d1_arm_id,
             self.end_effector_index,
             target_position,
             target_orientation,
+            lowerLimits=upper_limits, 
+            upperLimits=lower_limits,
+            jointRanges=[u - l for u, l in zip(upper_limits, lower_limits)],
+            restPoses=[0, -90, 90, 90, 0, 90, 0],
             maxNumIterations=100, 
             residualThreshold=1e-5
         )
@@ -328,7 +487,7 @@ def run_oculus(ik_server, oculus_reader, arm_client, hz=100, verbose=False):
     teleop = TeleopController(ik_server, arm_client)
 
     print("Starting teleop loop...")
-    print("Press button A on controoler to start controlling the arm")
+    print("Press button A on controller to start controlling the arm")
 
     while True: 
         time.sleep(1/hz)
@@ -347,9 +506,10 @@ def run_oculus(ik_server, oculus_reader, arm_client, hz=100, verbose=False):
         
         # Get button state
         button_pressed = buttons.get('A', False)
-        gripper_width = buttons.get('rightTrig')
+        home_button = buttons.get('B', False)
+        gripper_width = buttons.get('rightTrig')[0]
 
-        teleop.update(controller_pos, controller_quat, button_pressed, gripper_width)
+        teleop.update(controller_pos, controller_quat, button_pressed, gripper_width, home_button)
 
         if verbose:
             print(f"Controller pos: {controller_pos}, Button A: {button_pressed}")
@@ -367,9 +527,6 @@ def convert_pose_to_pos_quat(T):
 
     # Rotation is upper-left 3×3
     rot_mat = T[:3, :3]
-
-    print("pos: ", pos)
-    print("rot_mat: ", rot_mat)
 
     # Convert to quaternion
     quat = R.from_matrix(rot_mat).as_quat()  
@@ -392,6 +549,11 @@ if __name__ == "__main__":
             print("Connection FAILED")
             exit(1)
         print("Connection Successful")
+
+        if not arm_client.home_arm(): 
+            print("Failed to Home")
+            exit(1) 
+        print("Arm Homed")
 
         oculus_reader = OculusReader()
 
