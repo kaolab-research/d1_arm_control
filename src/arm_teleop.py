@@ -110,16 +110,19 @@ class ArmClient:
             print(f"Error homing robot arm: {e}")
             return False
 
-class TeleopController: 
+class TeleopController:
     def __init__(self, ik_server, arm_client):
         self.ik_server = ik_server
         self.arm_client = arm_client
 
         # Offset Tracking
-        self.position_offset = None 
-        self.orientation_offset = None 
+        self.position_offset = None
+        self.orientation_offset = None
 
-        # Button State Tracking 
+        # Current Pose Tracking 
+        self.current_angles_deg = None
+
+        # Button State Tracking
         self.prev_button_state = False
 
         # Coordinate frame transformation
@@ -127,13 +130,13 @@ class TeleopController:
 
     def setup_coordinate_transform(self):
         """
-        Transform from Quest frame to D1 Arm Frame 
+        Transform from Quest frame to D1 Arm Frame
 
         Quest Controller: +X=Left, +Y=Up, +Z=Forward
-        D1 Robot (dog): +X=Forward, +Y=Left, +Z=Up 
+        D1 Robot (dog): +X=Forward, +Y=Left, +Z=Up
 
-        Mapping: 
-        - Robot X (forward) = Quest Z 
+        Mapping:
+        - Robot X (forward) = Quest Z
         - Robot Y (left) = Quest X
         - Robot Z (up) = Quest Y
         """
@@ -210,6 +213,7 @@ class TeleopController:
         if current_angles is None: 
             print("Error: Failed to get current joint angles")
             return False
+        self.current_angles_deg = current_angles
         
         print(f"Current arm angles: {[f'{a:.3f}' for a in current_angles]}")
 
@@ -220,7 +224,7 @@ class TeleopController:
         controller_q_robot = self.transform_orientation_to_robot(controller_q)
 
         self.position_offset = np.array(current_pos) - controller_pos_robot
-        self.orientation_offset = self.calculate_orientation_offset(controller_q, current_q) # switch back to original for easier debug
+        self.orientation_offset = self.calculate_orientation_offset(controller_q_robot, current_q) # switch back to original for easier debug
 
         print(f"\nPosition offset: [{self.position_offset[0]:.3f}, {self.position_offset[1]:.3f}, {self.position_offset[2]:.3f}]")
         print(f"Orientation offset: [{self.orientation_offset[0]:.3f}, {self.orientation_offset[1]:.3f}, {self.orientation_offset[2]:.3f}, {self.orientation_offset[3]:.3f}]")
@@ -253,9 +257,9 @@ class TeleopController:
             controller_q_robot = self.transform_orientation_to_robot(controller_q)
 
             target_pos = controller_pos_robot + self.position_offset
-            target_quat = self.apply_orientation_offset(controller_q) # switch back rotation transformation 
+            target_quat = self.apply_orientation_offset(controller_q_robot) # switch back rotation transformation 
 
-            joint_angles = self.ik_server.solve_ik(target_pos, target_quat)
+            joint_angles = self.ik_server.solve_ik(self.current_angles_deg, target_pos, target_quat)
 
             if joint_angles is None: 
                 print("IK solution failed")
@@ -279,74 +283,7 @@ class TeleopController:
 
         self.prev_button_state = button_pressed
         return True
-    
-def simple_position_teleop():
-    print("="*50)
-    print("PHASE 5: Position-Only Teleoperation")
-    print("="*50)
-    
-    ik_server = IKServer("d1_550_description/urdf/d1_550_description.urdf")
-    arm_client = ArmClient()
-    arm_client.connect()
-    oculus_reader = OculusReader()
-    
-    teleop = TeleopController(ik_server, arm_client)
-    
-    print("\nPress button A to start")
-    
-    offset = None
-    initial_arm_quat = None
-    
-    while True:
-        time.sleep(0.05)  # 20 Hz
-        
-        poses, buttons = oculus_reader.get_transformations_and_buttons()
-        
-        if 'r' not in poses:
-            continue
-        
-        pos, quat = convert_pose_to_pos_quat(poses['r'])
-        button = buttons.get('A', False)
-        
-        # Button just pressed - calibrate
-        if button and offset is None:
-            print("\n--- Calibrating ---")
-            
-            # Get current arm state
-            current_angles = arm_client.request_current_angles()
-            current_pos, initial_arm_quat = ik_server.forward_kinematics(current_angles)
-            
-            # Transform controller to robot frame
-            pos_robot = teleop.transform_controller_to_robot(pos)
-            
-            # Calculate offset
-            offset = np.array(current_pos) - np.array(pos_robot)
-            
-            print(f"Current arm: {current_pos}")
-            print(f"Controller (robot frame): {pos_robot}")
-            print(f"Offset: {offset}")
-            print("--- Ready to control ---\n")
-        
-        # Button held - control arm
-        if button and offset is not None:
-            # Transform and apply offset
-            pos_robot = teleop.transform_controller_to_robot(pos)
-            target_pos = np.array(pos_robot) + offset
-            
-            # Solve IK with FIXED orientation
-            target_angles = ik_server.solve_ik(target_pos, initial_arm_quat)
-            
-            if target_angles:
-                arm_client.command_angles(target_angles,0)
-                print(f"Target: [{target_pos[0]:.3f}, {target_pos[1]:.3f}, {target_pos[2]:.3f}]", end='\r')
-            else:
-                print("IK FAILED", end='\r')
-        
-        # Button released
-        if not button and offset is not None:
-            print("\n--- Released ---")
-            offset = None
-            initial_arm_quat = None
+
 
 class IKServer:
     def __init__(self, urdf_path, verbose=False):
@@ -358,7 +295,7 @@ class IKServer:
         self.d1_arm_id  = p.loadURDF(urdf_path)
         self.num_joints = p.getNumJoints(self.d1_arm_id) - 2
         if self.num_joints != 6: 
-            print(f"Error: Incorrect number of joints reported. {self.num_joints} instead of 8")
+            print(f"Error: Incorrect number of joints reported. {self.num_joints} instead of 6")
         
         self.joint_indices = []
         for i in range(self.num_joints):
@@ -458,10 +395,11 @@ class IKServer:
         return position, orientation
     
     
-    def solve_ik(self, target_position, target_orientation): 
+    def solve_ik(self, current_angles_deg, target_position, target_orientation): 
         """ Calculate joint angles needed for specific position and orientation """
-        lower_limits = [-135, -90, -90, -135, -90, -135]
-        upper_limits = [135, 90, 90, 135, 90, 135]
+        lower_limits = np.radians([-135, -90, -90, -135, -90, -135])
+        upper_limits = np.radians([135, 90, 90, 135, 90, 135])
+        rest_poses = np.radians([0, -90, 90, 90, 0, 90, 0])
 
         if not self.is_in_workspace(target_position):
             return None
@@ -471,10 +409,10 @@ class IKServer:
             self.end_effector_index,
             target_position,
             target_orientation,
-            lowerLimits=upper_limits, 
-            upperLimits=lower_limits,
+            lowerLimits=lower_limits, 
+            upperLimits=upper_limits,
             jointRanges=[u - l for u, l in zip(upper_limits, lower_limits)],
-            restPoses=[0, -90, 90, 90, 0, 90, 0],
+            restPoses=np.radians(current_angles_deg),
             maxNumIterations=100, 
             residualThreshold=1e-5
         )
@@ -580,3 +518,95 @@ if __name__ == "__main__":
             if 'r' in poses:
                 print(f"Buttons = [{buttons}]")
             time.sleep(0.2)
+
+    elif MODE == 8:
+        print("="*50)
+        print("PHASE 8: Orientation Control Test")
+        print("="*50)
+        
+        ik_server = IKServer("d1_550_description/urdf/d1_550_description.urdf")
+        arm_client = ArmClient()
+        arm_client.connect()
+        
+        # Get current state
+        print("\n1. Getting current arm state...")
+        current_angles = arm_client.request_current_angles()
+        current_pos, current_quat = ik_server.forward_kinematics(current_angles)
+        
+        print(f"Current position: {current_pos}")
+        print(f"Current quaternion: {current_quat}")
+        print(f"Current angles: {[f'{a:.1f}' for a in current_angles]}")
+        
+        # Test 1: Pure rotation around Z-axis (wrist twist)
+        print("\n2. Test: Rotating wrist 30° around Z-axis (twist)")
+        print("   This should ONLY change Joint 5 (the wrist)")
+        
+        from scipy.spatial.transform import Rotation as R
+        
+        # Create a 30-degree rotation around Z
+        rotation_z = R.from_euler('x', 30, degrees=True)
+        current_rot = R.from_quat(current_quat)
+        new_quat = (current_rot * rotation_z).as_quat()
+        
+        print(f"New quaternion: {new_quat}")
+        
+        # Solve IK
+        target_angles = ik_server.solve_ik(current_angles, current_pos, new_quat)
+        
+        if target_angles:
+            print(f"\nIK Solution:")
+            for i in range(6):
+                delta = target_angles[i] - current_angles[i]
+                marker = " ← CHANGED" if abs(delta) > 1.0 else ""
+                print(f"  Joint {i}: {current_angles[i]:6.1f}° → {target_angles[i]:6.1f}° (Δ={delta:+6.1f}°){marker}")
+            
+            print("\nExpected: Only Joint 5 should change significantly")
+            print("If Joint 4 changes a lot instead, there's a problem!")
+            
+            # Ask user if they want to test
+            print("\nSend this command to the arm? (y/n)")
+            if input().lower() == 'y':
+                arm_client.command_angles(target_angles, 0)
+                time.sleep(2)
+                
+                # Check result
+                new_angles = arm_client.request_current_angles()
+                print(f"\nActual result:")
+                for i in range(6):
+                    print(f"  Joint {i}: {new_angles[i]:.1f}°")
+                
+                print("\nDid Joint 5 (wrist) twist? (y/n)")
+                if input().lower() == 'y':
+                    print("✓ Orientation control is working!")
+                else:
+                    print("✗ Problem with orientation - wrong joint moved")
+        else:
+            print("✗ IK failed!")
+
+    elif MODE == 9:
+        print("="*50)
+        print("PHASE 9: Check URDF Joint Axes")
+        print("="*50)
+        
+        ik_server = IKServer("d1_550_description/urdf/d1_550_description.urdf")
+        
+        print("\nJoint Axes in URDF:")
+        for i in range(6):  # Only arm joints
+            info = p.getJointInfo(ik_server.d1_arm_id, i)
+            joint_name = info[1].decode('utf-8')
+            joint_axis = info[13]  # Joint axis in local frame
+            joint_type = info[2]
+            
+            print(f"Joint {i} ({joint_name:10s}): axis = {joint_axis}")
+        
+        print("\n" + "="*50)
+        print("Expected for a typical 6-DOF arm:")
+        print("  Joint 0: (0, 0, 1) - Base rotation (Z-axis)")
+        print("  Joint 1: (0, 1, 0) - Shoulder pitch (Y-axis)")
+        print("  Joint 2: (0, 1, 0) - Elbow pitch (Y-axis)")
+        print("  Joint 3: (0, 1, 0) - Wrist pitch (Y-axis)")
+        print("  Joint 4: (0, 0, 1) - Wrist roll (Z-axis)")
+        print("  Joint 5: (0, 1, 0) - Wrist yaw (Y-axis)")
+        print("OR")
+        print("  Joint 5: (0, 0, 1) - Wrist twist (Z-axis) ← This is what we want!")
+        print("="*50)
