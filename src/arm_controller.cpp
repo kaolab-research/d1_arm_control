@@ -87,6 +87,19 @@ bool D1ArmController::home_joint_angles()
     return true; 
 }
 
+bool D1ArmController::set_gripper_width(const float gripper_width) {
+    unitree_arm::msg::dds_::ArmString_ msg{};
+
+    std::string cmd_msg = "{\"seq\":4,\"address\":1,\"funcode\":2,\"data\":{"
+    "\"mode\":1,\"angle6\":" + std::to_string(gripper_width) + "}}";
+
+    std::cout << cmd_msg << std::endl;
+
+    msg.data_() = cmd_msg;
+    publisher->Write(msg);
+    return true; 
+}
+
 bool D1ArmController::get_joint_angles(std::vector<float>& joint_angles) 
 {
     std::lock_guard<std::mutex> lock(servo_mutex_); 

@@ -143,6 +143,18 @@ bool ArmServer::handle_request(D1ArmController& controller) {
                 return false;
             }
             return true;
+        
+        case 5: 
+            /* Command Gripper Width Only */
+            float gripper_width; 
+            memcpy(&gripper_width, &buffer[1], sizeof(float));
+            gripper_width = 65.0 * gripper_width; 
+
+            if(!controller.set_gripper_width(gripper_width)) {
+                std::cerr << "Failed to command gripper width" << std::endl; 
+                return false;
+            }
+            return true;
             
         default: 
             std::cerr << "Unknown Request Type from Python Server: " << request << std::endl; 

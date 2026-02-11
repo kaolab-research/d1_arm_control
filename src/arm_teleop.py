@@ -20,6 +20,7 @@ MSG_REQUEST_ANGLES = 0
 MSG_COMMAND_ANGLES = 1
 MSG_PING = 3
 MSG_HOME_ARM = 4
+MSG_COMMAND_GRIPPER = 5
 
 class ArmClient: 
     """ Handle Communication to C++ Arm Control Interface """
@@ -101,6 +102,18 @@ class ArmClient:
         except Exception as e: 
             print(f"Error commanding angles: {e}")
             return False
+    
+    def command_gripper(self, gripper_width):
+        try:
+            result_angles = struct.pack('B', MSG_COMMAND_GRIPPER)
+            result_angles += struct.pack('f', gripper_width)
+            self.sock.send(result_angles)
+
+            return True
+
+        except Exception as e: 
+            print(f"Error commanding gripper: {e}")
+            return False
         
     def home_arm(self):
         try: 
@@ -121,12 +134,15 @@ class TeleopController:
 
         # Current Pose Tracking 
         self.current_angles_deg = None
+        self.gripper_width = 0.0
 
         # Button State Tracking
         self.prev_button_state = False
 
         # Coordinate frame transformation
         self.setup_coordinate_transform()
+
+        self.GRIPPER_STEP = 0.02
 
     def setup_coordinate_transform(self):
         """
@@ -231,7 +247,7 @@ class TeleopController:
 
         return True
     
-    def update(self, controller_pos, controller_q, button_pressed, gripper_width, home_pressed):
+    def update(self, controller_pos, controller_q, button_pressed, gripper_close_cmd, gripper_open_cmd, home_pressed):
         """ Main update function - called repeatedly """
 
         if home_pressed: 
@@ -265,8 +281,14 @@ class TeleopController:
                 print("IK solution failed")
                 self.prev_button_state = button_pressed
                 return False
+            
+            if gripper_close_cmd == 1.0: 
+                self.gripper_width -= self.GRIPPER_STEP
+            if gripper_open_cmd == 1.0:
+                self.gripper_width += self.GRIPPER_STEP
+            self.gripper_width = np.clip(self.gripper_width, 0.0, 1.0)
 
-            success = self.arm_client.command_angles(joint_angles, gripper_width)
+            success = self.arm_client.command_angles(joint_angles, self.gripper_width)
 
             if success:
                 print("Commanded joint angles")
@@ -276,6 +298,16 @@ class TeleopController:
             self.prev_button_state = button_pressed
             return success
         
+        # If we want to move gripper without moving arm
+        if gripper_close_cmd == 1.0 or gripper_open_cmd == 1.0:
+            if gripper_close_cmd == 1.0: 
+                self.gripper_width -= self.GRIPPER_STEP
+            if gripper_open_cmd == 1.0:
+                self.gripper_width += self.GRIPPER_STEP
+            self.gripper_width = np.clip(self.gripper_width, 0.0, 1.0)
+            success = self.arm_client.command_gripper(self.gripper_width)
+            print(f"Commanded Gripper to: {self.gripper_width}")
+            
         if not button_pressed and self.prev_button_state:
             print("Button released - pausing teleoperation")
             self.position_offset = None 
@@ -445,9 +477,10 @@ def run_oculus(ik_server, oculus_reader, arm_client, hz=100, verbose=False):
         # Get button state
         button_pressed = buttons.get('A', False)
         home_button = buttons.get('B', False)
-        gripper_width = buttons.get('rightTrig')[0]
+        gripper_close_command = buttons.get('rightTrig')[0]
+        gripper_open_command = buttons.get('rightGrip')[0]
 
-        teleop.update(controller_pos, controller_quat, button_pressed, gripper_width, home_button)
+        teleop.update(controller_pos, controller_quat, button_pressed, gripper_close_command, gripper_open_command, home_button)
 
         if verbose:
             print(f"Controller pos: {controller_pos}, Button A: {button_pressed}")
@@ -537,51 +570,10 @@ if __name__ == "__main__":
         print(f"Current quaternion: {current_quat}")
         print(f"Current angles: {[f'{a:.1f}' for a in current_angles]}")
         
-        # Test 1: Pure rotation around Z-axis (wrist twist)
-        print("\n2. Test: Rotating wrist 30° around Z-axis (twist)")
-        print("   This should ONLY change Joint 5 (the wrist)")
-        
-        from scipy.spatial.transform import Rotation as R
-        
-        # Create a 30-degree rotation around Z
-        rotation_z = R.from_euler('x', 30, degrees=True)
-        current_rot = R.from_quat(current_quat)
-        new_quat = (current_rot * rotation_z).as_quat()
-        
-        print(f"New quaternion: {new_quat}")
-        
-        # Solve IK
-        target_angles = ik_server.solve_ik(current_angles, current_pos, new_quat)
-        
-        if target_angles:
-            print(f"\nIK Solution:")
-            for i in range(6):
-                delta = target_angles[i] - current_angles[i]
-                marker = " ← CHANGED" if abs(delta) > 1.0 else ""
-                print(f"  Joint {i}: {current_angles[i]:6.1f}° → {target_angles[i]:6.1f}° (Δ={delta:+6.1f}°){marker}")
-            
-            print("\nExpected: Only Joint 5 should change significantly")
-            print("If Joint 4 changes a lot instead, there's a problem!")
-            
-            # Ask user if they want to test
-            print("\nSend this command to the arm? (y/n)")
-            if input().lower() == 'y':
-                arm_client.command_angles(target_angles, 0)
-                time.sleep(2)
-                
-                # Check result
-                new_angles = arm_client.request_current_angles()
-                print(f"\nActual result:")
-                for i in range(6):
-                    print(f"  Joint {i}: {new_angles[i]:.1f}°")
-                
-                print("\nDid Joint 5 (wrist) twist? (y/n)")
-                if input().lower() == 'y':
-                    print("✓ Orientation control is working!")
-                else:
-                    print("✗ Problem with orientation - wrong joint moved")
-        else:
-            print("✗ IK failed!")
+        for value in [0.0, 0.01, 0.03, 0.065, 0.1, 1.0, 10.0, 65.0]:
+            print(f"Sending gripper value: {value}")
+            arm_client.command_angles(current_angles[:6], value)
+            time.sleep(5)
 
     elif MODE == 9:
         print("="*50)
