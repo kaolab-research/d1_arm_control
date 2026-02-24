@@ -133,6 +133,8 @@ class TeleopController:
         # Offset Tracking
         self.position_offset = None
         self.orientation_offset = None
+        self.controller_q_init = None
+        self.arm_q_init = None
 
         # Current Pose Tracking 
         self.current_angles_deg = None
@@ -273,10 +275,15 @@ class TeleopController:
         print(f"Current arm angles: {[f'{a:.3f}' for a in current_angles]}")
 
         current_pos, current_q = self.ik_server.forward_kinematics(current_angles)
-        
+        print(f"Arm quat at init: {[f'{v:.3f}' for v in current_q]}")
+        print(f"Arm euler at init: {[f'{v:.1f}' for v in R.from_quat(current_q).as_euler('xyz', degrees=True)]}")
+
         # Transform controller pos to robot frame
         controller_pos_robot = self.transform_controller_to_robot(controller_pos)
         controller_q_robot = self.transform_orientation_to_robot(controller_q)
+
+        self.controller_q_init = np.array(controller_q_robot)
+        self.arm_q_init = np.array(current_q)
 
         self.position_offset = np.array(current_pos) - controller_pos_robot
         self.orientation_offset = self.calculate_orientation_offset(controller_q_robot, current_q) # switch back to original for easier debug
@@ -312,7 +319,25 @@ class TeleopController:
             controller_q_robot = self.transform_orientation_to_robot(controller_q)
 
             target_pos = controller_pos_robot + self.position_offset
-            target_quat = self.apply_orientation_offset(controller_q_robot) # switch back rotation transformation 
+            # target_quat = self.apply_orientation_offset(controller_q_robot) # switch back rotation transformation 
+            
+            # Compute delta rotation from controller init
+            controller_init_inv = R.from_quat(self.controller_q_init).inv()
+            delta_rot = R.from_quat(controller_q_robot) * controller_init_inv
+
+            # Extract delta as euler, zero out roll, only apply pitch and yaw
+            delta_euler = delta_rot.as_euler('xyz', degrees=True)
+            delta_euler[0] = 0 # ignore roll changes
+            delta_euler[2] *= -1 # flip yaw direction
+            delta_rot_filtered = R.from_euler('xyz', delta_euler, degrees=True)
+
+            # Apply filtered delta to arm's starting orientation
+            target_rot = delta_rot_filtered * R.from_quat(self.arm_q_init)
+            target_quat = target_rot.as_quat()
+            
+            # FOR DBUGGING
+            euler = R.from_quat(controller_q_robot).as_euler('xyz', degrees=True)
+            print(f"Controller euler (robot frame): roll={euler[0]:.1f} pitch={euler[1]:.1f} yaw={euler[2]:.1f}")
 
             joint_angles = self.ik_server.solve_ik(self.current_angles_deg, target_pos, target_quat)
 
