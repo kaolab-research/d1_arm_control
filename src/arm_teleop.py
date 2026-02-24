@@ -140,6 +140,10 @@ class TeleopController:
         self.current_angles_deg = None
         self.gripper_width = 0.0
 
+        # Threshold to Send Command 
+        self.pos_threshold = 0.005
+        self.rot_threshold = 1.0
+
         # Button State Tracking
         self.prev_button_state = False
         
@@ -203,7 +207,8 @@ class TeleopController:
             [1, 0, 0],
             [0, 1, 0],
         ])
-        self.position_scale = 1.0
+        self.position_scale = 0.5
+        self.rotation_scale = 0.5
 
         self.frame_rotation = R.from_matrix(self.transform_matrix)
     
@@ -272,12 +277,8 @@ class TeleopController:
             return False
         self.current_angles_deg = current_angles
         
-        print(f"Current arm angles: {[f'{a:.3f}' for a in current_angles]}")
-
         current_pos, current_q = self.ik_server.forward_kinematics(current_angles)
-        print(f"Arm quat at init: {[f'{v:.3f}' for v in current_q]}")
-        print(f"Arm euler at init: {[f'{v:.1f}' for v in R.from_quat(current_q).as_euler('xyz', degrees=True)]}")
-
+    
         # Transform controller pos to robot frame
         controller_pos_robot = self.transform_controller_to_robot(controller_pos)
         controller_q_robot = self.transform_orientation_to_robot(controller_q)
@@ -315,6 +316,8 @@ class TeleopController:
                 return False
             
         if button_pressed and self.position_offset is not None: 
+            current_pos_fk, _ = self.ik_server.forward_kinematics(self.current_angles_deg)
+
             controller_pos_robot = self.transform_controller_to_robot(controller_pos)
             controller_q_robot = self.transform_orientation_to_robot(controller_q)
 
@@ -328,7 +331,8 @@ class TeleopController:
             # Extract delta as euler, zero out roll, only apply pitch and yaw
             delta_euler = delta_rot.as_euler('xyz', degrees=True)
             delta_euler[0] = 0 # ignore roll changes
-            delta_euler[2] *= -1 # flip yaw direction
+            delta_euler[1] *= self.rotation_scale
+            delta_euler[2] *= -self.rotation_scale # flip yaw direction
             delta_rot_filtered = R.from_euler('xyz', delta_euler, degrees=True)
 
             # Apply filtered delta to arm's starting orientation
@@ -338,6 +342,13 @@ class TeleopController:
             # FOR DBUGGING
             euler = R.from_quat(controller_q_robot).as_euler('xyz', degrees=True)
             print(f"Controller euler (robot frame): roll={euler[0]:.1f} pitch={euler[1]:.1f} yaw={euler[2]:.1f}")
+            
+            pos_delta = np.linalg.norm(target_pos - np.array(current_pos_fk))
+            rot_delta = np.abs(delta_euler[1]) + np.abs(delta_euler[2])
+
+            if pos_delta < self.pos_threshold and rot_delta < self.rot_threshold:
+                self.prev_button_state = button_pressed
+                return True # Skip this command
 
             joint_angles = self.ik_server.solve_ik(self.current_angles_deg, target_pos, target_quat)
 
