@@ -9,6 +9,7 @@ import sys
 import time
 import csv
 from scipy.spatial.transform import Rotation as R
+import threading
 
 from oculus_reader_repo.oculus_reader.reader import OculusReader
 
@@ -124,9 +125,10 @@ class ArmClient:
             return False
 
 class TeleopController:
-    def __init__(self, ik_server, arm_client):
+    def __init__(self, ik_server, arm_client, oculus_reader):
         self.ik_server = ik_server
         self.arm_client = arm_client
+        self.oculus_reader = oculus_reader
 
         # Offset Tracking
         self.position_offset = None
@@ -138,14 +140,51 @@ class TeleopController:
 
         # Button State Tracking
         self.prev_button_state = False
+        
+        # Shared controller state 
+        # Write in thread, Read in loop
+        self._state = {
+            "poses": {},
+            "buttons": {},
+            "controller_on": False,
+        }
+        self._lock = threading.Lock()
 
         # Coordinate frame transformation
         self.setup_coordinate_transform()
-
         self.GRIPPER_STEP = 0.02
+        
+        t = threading.Thread(target=self._update_internal_state, daemon=True)
+        t.start()
+
+    def _update_internal_state(self, hz=50, timeout_sec=5):
+        last_read_time = time.time()
+        while True:
+            time.sleep(1/hz) 
+            poses, buttons = self.oculus_reader.get_transformations_and_buttons()
+
+            with self._lock:
+                self._state["controller_on"] = (time.time() - last_read_time) < timeout_sec
+            
+            if not poses:
+                continue
+
+            last_read_time = time.time()
+            with self._lock: 
+                self._state["poses"] = poses 
+                self._state["buttons"] = buttons 
+                self._state["controller_on"] = True
+
+    def _get_state(self):
+        with self._lock:
+            return {
+                "poses": dict(self._state["poses"]),
+                "buttons": dict(self._state["buttons"]),
+                "controller_on": self._state["controller_on"],
+            }
 
     def setup_coordinate_transform(self):
-        """
+        """ 
         Transform from Quest frame to D1 Arm Frame
 
         Quest Controller: +X=Left, +Y=Up, +Z=Forward
@@ -454,7 +493,7 @@ class IKServer:
 def run_oculus(ik_server, oculus_reader, arm_client, hz=100, verbose=False):
     """ Main operarion loop """
 
-    teleop = TeleopController(ik_server, arm_client)
+    teleop = TeleopController(ik_server, arm_client, oculus_reader)
 
     print("Starting teleop loop...")
     print("Press button A on controller to start controlling the arm")
@@ -463,13 +502,17 @@ def run_oculus(ik_server, oculus_reader, arm_client, hz=100, verbose=False):
         time.sleep(1/hz)
 
         # Get controller data 
-        poses, buttons = oculus_reader.get_transformations_and_buttons()
-        
-        
-        if 'r' in poses:
-            pose_matrix = poses['r']
-        else:
+        state = teleop._get_state()
+
+        if not state["controller_on"]: 
+            print("Controller disconnected, skip ...")
             continue
+        
+        if 'r' not in state["poses"]:
+            continue
+            
+        pose_matrix = state["poses"]['r']
+        buttons = state["buttons"]
 
         # Get position and orientation from pose matrix
         controller_pos, controller_quat = convert_pose_to_pos_quat(pose_matrix)
@@ -477,8 +520,8 @@ def run_oculus(ik_server, oculus_reader, arm_client, hz=100, verbose=False):
         # Get button state
         button_pressed = buttons.get('A', False)
         home_button = buttons.get('B', False)
-        gripper_close_command = buttons.get('rightTrig')[0]
-        gripper_open_command = buttons.get('rightGrip')[0]
+        gripper_close_command = buttons.get('rightTrig', 0.0)[0]
+        gripper_open_command = buttons.get('rightGrip', 0.0)[0]
 
         teleop.update(controller_pos, controller_quat, button_pressed, gripper_close_command, gripper_open_command, home_button)
 
