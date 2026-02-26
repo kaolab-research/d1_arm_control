@@ -116,9 +116,20 @@ class ArmClient:
             print(f"Error commanding gripper: {e}")
             return False
         
+
+    "{\"seq\":4,\"address\":1,\"funcode\":1,\"data\":{\"id\":5,\"angle\":60,\"delay_ms\":0}}"
+
     def home_arm(self):
         try: 
             self.sock.send(struct.pack('B', MSG_HOME_ARM))
+            time.sleep(1) # Allow time to home the arm
+            self.command_gripper(1)
+            time.sleep(1)
+            self.command_gripper(0)
+            time.sleep(1)
+            self.command_gripper(1)
+
+            self.gripper_width = 1.0
             return True
         except Exception as e: 
             print(f"Error homing robot arm: {e}")
@@ -158,7 +169,6 @@ class TeleopController:
 
         # Coordinate frame transformation
         self.setup_coordinate_transform()
-        self.GRIPPER_STEP = 0.02
         
         t = threading.Thread(target=self._update_internal_state, daemon=True)
         t.start()
@@ -294,9 +304,10 @@ class TeleopController:
 
         return True
     
-    def update(self, controller_pos, controller_q, button_pressed, gripper_close_cmd, gripper_open_cmd, home_pressed):
+    def update(self, controller_pos, controller_q, button_pressed, gripper_close_cmd, home_pressed):
         """ Main update function - called repeatedly """
 
+        # Home arm on request (press button B)
         if home_pressed: 
             success = self.arm_client.home_arm()
             if success: 
@@ -306,8 +317,8 @@ class TeleopController:
                 print("Failed to Home")
                 return False
 
+        # Reset arm state on initial button press 
         button_just_pressed = button_pressed and not self.prev_button_state
-
         if button_just_pressed: 
             success = self.handle_button_press(controller_pos, controller_q)
             if not success:
@@ -315,19 +326,18 @@ class TeleopController:
                 self.prev_button_state = button_pressed
                 return False
             
+        # Button pressed regular operations
         if button_pressed and self.position_offset is not None: 
             current_pos_fk, _ = self.ik_server.forward_kinematics(self.current_angles_deg)
-
             controller_pos_robot = self.transform_controller_to_robot(controller_pos)
             controller_q_robot = self.transform_orientation_to_robot(controller_q)
 
+            # Calculate target position
             target_pos = controller_pos_robot + self.position_offset
-            # target_quat = self.apply_orientation_offset(controller_q_robot) # switch back rotation transformation 
             
             # Compute delta rotation from controller init
             controller_init_inv = R.from_quat(self.controller_q_init).inv()
             delta_rot = R.from_quat(controller_q_robot) * controller_init_inv
-
             # Extract delta as euler, zero out roll, only apply pitch and yaw
             delta_euler = delta_rot.as_euler('xyz', degrees=True)
             delta_euler[0] = 0 # ignore roll changes
@@ -335,54 +345,41 @@ class TeleopController:
             delta_euler[2] *= -self.rotation_scale # flip yaw direction
             delta_rot_filtered = R.from_euler('xyz', delta_euler, degrees=True)
 
-            # Apply filtered delta to arm's starting orientation
+            # Apply filtered delta starting orientation of arm 
             target_rot = delta_rot_filtered * R.from_quat(self.arm_q_init)
             target_quat = target_rot.as_quat()
             
-            # FOR DBUGGING
-            euler = R.from_quat(controller_q_robot).as_euler('xyz', degrees=True)
-            print(f"Controller euler (robot frame): roll={euler[0]:.1f} pitch={euler[1]:.1f} yaw={euler[2]:.1f}")
-            
+            # Skip command if no significant movement is made
             pos_delta = np.linalg.norm(target_pos - np.array(current_pos_fk))
             rot_delta = np.abs(delta_euler[1]) + np.abs(delta_euler[2])
-
             if pos_delta < self.pos_threshold and rot_delta < self.rot_threshold:
                 self.prev_button_state = button_pressed
-                return True # Skip this command
+                return True
 
+            # Inverse kinematics to get joint angles from position command 
             joint_angles = self.ik_server.solve_ik(self.current_angles_deg, target_pos, target_quat)
-
             if joint_angles is None: 
                 print("IK solution failed")
                 self.prev_button_state = button_pressed
                 return False
-            
-            if gripper_close_cmd == 1.0: 
-                self.gripper_width -= self.GRIPPER_STEP
-            if gripper_open_cmd == 1.0:
-                self.gripper_width += self.GRIPPER_STEP
-            self.gripper_width = np.clip(self.gripper_width, 0.0, 1.0)
 
             success = self.arm_client.command_angles(joint_angles, self.gripper_width)
-
             if success:
-                print("Commanded joint angles")
+                self.current_angles_deg = joint_angles
             else:
-                print("Failed to command angles")
+                print("Failed to command joint angles")
 
             self.prev_button_state = button_pressed
             return success
+        else:
+            # If we want to move gripper without moving arm
+            grip_delta = np.abs(gripper_close_cmd - self.gripper_width)
+            if grip_delta > 0.1:
+                norm_gripper_cmd = np.abs(1 - gripper_close_cmd)
+                success = self.arm_client.command_gripper(norm_gripper_cmd)
+                if success:
+                    self.gripper_width = norm_gripper_cmd
         
-        # If we want to move gripper without moving arm
-        if gripper_close_cmd == 1.0 or gripper_open_cmd == 1.0:
-            if gripper_close_cmd == 1.0: 
-                self.gripper_width -= self.GRIPPER_STEP
-            if gripper_open_cmd == 1.0:
-                self.gripper_width += self.GRIPPER_STEP
-            self.gripper_width = np.clip(self.gripper_width, 0.0, 1.0)
-            success = self.arm_client.command_gripper(self.gripper_width)
-            print(f"Commanded Gripper to: {self.gripper_width}")
-            
         if not button_pressed and self.prev_button_state:
             print("Button released - pausing teleoperation")
             self.position_offset = None 
@@ -554,15 +551,14 @@ def run_oculus(ik_server, oculus_reader, arm_client, hz=100, verbose=False):
         controller_pos, controller_quat = convert_pose_to_pos_quat(pose_matrix)
         
         # Get button state
-        button_pressed = buttons.get('A', False)
+        teleop_button = buttons.get('A', False)
         home_button = buttons.get('B', False)
-        gripper_close_command = buttons.get('rightTrig', 0.0)[0]
-        gripper_open_command = buttons.get('rightGrip', 0.0)[0]
+        gripper_close_cmd = buttons.get('rightTrig', 0.0)[0]
 
-        teleop.update(controller_pos, controller_quat, button_pressed, gripper_close_command, gripper_open_command, home_button)
+        teleop.update(controller_pos, controller_quat, teleop_button, gripper_close_cmd, home_button)
 
         if verbose:
-            print(f"Controller pos: {controller_pos}, Button A: {button_pressed}")
+            print(f"Controller pos: {controller_pos}, Button A: {teleop_button}, Gripper: {gripper_close_cmd}, Home: {home_button}")
 
     
 def convert_pose_to_pos_quat(T):
@@ -631,53 +627,4 @@ if __name__ == "__main__":
                 print(f"Buttons = [{buttons}]")
             time.sleep(0.2)
 
-    elif MODE == 8:
-        print("="*50)
-        print("PHASE 8: Orientation Control Test")
-        print("="*50)
-        
-        ik_server = IKServer("d1_550_description/urdf/d1_550_description.urdf")
-        arm_client = ArmClient()
-        arm_client.connect()
-        
-        # Get current state
-        print("\n1. Getting current arm state...")
-        current_angles = arm_client.request_current_angles()
-        current_pos, current_quat = ik_server.forward_kinematics(current_angles)
-        
-        print(f"Current position: {current_pos}")
-        print(f"Current quaternion: {current_quat}")
-        print(f"Current angles: {[f'{a:.1f}' for a in current_angles]}")
-        
-        for value in [0.0, 0.01, 0.03, 0.065, 0.1, 1.0, 10.0, 65.0]:
-            print(f"Sending gripper value: {value}")
-            arm_client.command_angles(current_angles[:6], value)
-            time.sleep(5)
-
-    elif MODE == 9:
-        print("="*50)
-        print("PHASE 9: Check URDF Joint Axes")
-        print("="*50)
-        
-        ik_server = IKServer("d1_550_description/urdf/d1_550_description.urdf")
-        
-        print("\nJoint Axes in URDF:")
-        for i in range(6):  # Only arm joints
-            info = p.getJointInfo(ik_server.d1_arm_id, i)
-            joint_name = info[1].decode('utf-8')
-            joint_axis = info[13]  # Joint axis in local frame
-            joint_type = info[2]
-            
-            print(f"Joint {i} ({joint_name:10s}): axis = {joint_axis}")
-        
-        print("\n" + "="*50)
-        print("Expected for a typical 6-DOF arm:")
-        print("  Joint 0: (0, 0, 1) - Base rotation (Z-axis)")
-        print("  Joint 1: (0, 1, 0) - Shoulder pitch (Y-axis)")
-        print("  Joint 2: (0, 1, 0) - Elbow pitch (Y-axis)")
-        print("  Joint 3: (0, 1, 0) - Wrist pitch (Y-axis)")
-        print("  Joint 4: (0, 0, 1) - Wrist roll (Z-axis)")
-        print("  Joint 5: (0, 1, 0) - Wrist yaw (Y-axis)")
-        print("OR")
-        print("  Joint 5: (0, 0, 1) - Wrist twist (Z-axis) ← This is what we want!")
-        print("="*50)
+    
