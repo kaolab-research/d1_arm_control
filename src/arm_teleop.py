@@ -129,7 +129,6 @@ class ArmClient:
             time.sleep(1)
             self.command_gripper(1)
 
-            self.gripper_width = 1.0
             return True
         except Exception as e: 
             print(f"Error homing robot arm: {e}")
@@ -157,6 +156,7 @@ class TeleopController:
 
         # Button State Tracking
         self.prev_button_state = False
+        self.prev_delta_euler = np.zeros(3)
         
         # Shared controller state 
         # Write in thread, Read in loop
@@ -217,8 +217,8 @@ class TeleopController:
             [1, 0, 0],
             [0, 1, 0],
         ])
-        self.position_scale = 0.5
-        self.rotation_scale = 0.5
+        self.position_scale = 0.6
+        self.rotation_scale = 0.4
 
         self.frame_rotation = R.from_matrix(self.transform_matrix)
     
@@ -299,6 +299,8 @@ class TeleopController:
         self.position_offset = np.array(current_pos) - controller_pos_robot
         self.orientation_offset = self.calculate_orientation_offset(controller_q_robot, current_q) # switch back to original for easier debug
 
+        self.prev_delta_euler = np.zeros(3)
+
         print(f"\nPosition offset: [{self.position_offset[0]:.3f}, {self.position_offset[1]:.3f}, {self.position_offset[2]:.3f}]")
         print(f"Orientation offset: [{self.orientation_offset[0]:.3f}, {self.orientation_offset[1]:.3f}, {self.orientation_offset[2]:.3f}, {self.orientation_offset[3]:.3f}]")
 
@@ -312,6 +314,7 @@ class TeleopController:
             success = self.arm_client.home_arm()
             if success: 
                 print("Homing Robot Arm")
+                self.gripper_width = 1.0
                 return True
             else: 
                 print("Failed to Home")
@@ -350,11 +353,16 @@ class TeleopController:
             target_quat = target_rot.as_quat()
             
             # Skip command if no significant movement is made
+            delta_euler_change = np.abs(delta_euler - self.prev_delta_euler)
+            rot_delta = delta_euler_change[1] + delta_euler_change[2] 
             pos_delta = np.linalg.norm(target_pos - np.array(current_pos_fk))
-            rot_delta = np.abs(delta_euler[1]) + np.abs(delta_euler[2])
             if pos_delta < self.pos_threshold and rot_delta < self.rot_threshold:
                 self.prev_button_state = button_pressed
                 return True
+            
+            self.prev_delta_euler = delta_euler.copy()
+            
+
 
             # Inverse kinematics to get joint angles from position command 
             joint_angles = self.ik_server.solve_ik(self.current_angles_deg, target_pos, target_quat)
@@ -423,12 +431,12 @@ class IKServer:
             'front': {
                 'x_min': 0.30,
                 'x_max': 0.52, 
-                'z_min': -0.07
+                'z_min': -0.30
             },
             'back': {
                 'x_min': -0.52, 
                 'x_max': -0.20,
-                'z_min': -0.07
+                'z_min': -0.30
             },
             'sides': {
                 'y_threshold': 0.1,
