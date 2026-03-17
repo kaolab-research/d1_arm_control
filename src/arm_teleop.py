@@ -8,9 +8,11 @@ import signal
 import sys
 import time
 import csv
+import os 
 from scipy.spatial.transform import Rotation as R
 import threading
-
+import json
+from dataclasses import dataclass, asdict
 from oculus_reader_repo.oculus_reader.reader import OculusReader
 
 NORMAL = 0 
@@ -22,6 +24,81 @@ MSG_COMMAND_ANGLES = 1
 MSG_PING = 3
 MSG_HOME_ARM = 4
 MSG_COMMAND_GRIPPER = 5
+
+@dataclass
+class Transition:
+    timestamp: float
+
+    # State 
+    joint_angles: list
+    gripper_width: float
+    ee_position: list 
+    ee_quaternion: list 
+    controller_pos: list 
+    controller_quat: list
+
+    # Action
+    commanded_joint_angles: list
+    commanded_gripper: float
+
+    # Metadata 
+    episode_id: int
+    step: int
+
+class DataLogger:
+    def __init__(self, output_dir="data"):
+        self.output_dir = output_dir
+        os.makedirs(output_dir, exist_ok=True)
+
+        self.episode_id = 0
+        self.step = 0
+        self.current_episode = []
+        self.recording = False
+
+        self._lock = threading.Lock()
+
+    def start_episode(self):
+        self.episode_id += 1
+        self.step = 0
+        self.current_episode = []
+        self.recording = True
+        print(f"Started Episode {self.episode_id}")
+    
+    def stop_episode(self, success: bool):
+        if not self.recording: 
+            return 
+        self.recording = False
+        self._save_episode(success)
+        print(f"Saved episode {self.episode_id} - {'SUCCESS' if success else 'FAILURE'}")
+
+    def discard_episode(self):
+        if not self.recording: 
+            return 
+        self.recording = False
+        self.current_episode = []
+        print(f"Discarded episode {self.episode_id}")
+        self.episode_id -= 1
+
+    def log(self, transition: Transition):
+        if not self.recording: 
+            return 
+        with self._lock: 
+            self.current_episode.append(asdict(transition))
+        self.step += 1
+
+    def _save_episode(self, success: bool):
+        with self._lock: 
+            episode_data = {
+                "episode_id": self.episode_id,
+                "success": success,
+                "length": len(self.current_episode),
+                "transition": self.current_episode
+            }
+        
+        filename = f"{self.output_dir}/episode_{self.episode_id:04d}_{'success' if success else 'failure'}.json"
+        with open(filename, 'w') as f: 
+            json.dump(episode_data, f)
+
 
 class ArmClient: 
     """ Handle Communication to C++ Arm Control Interface """
@@ -116,9 +193,6 @@ class ArmClient:
             print(f"Error commanding gripper: {e}")
             return False
         
-
-    "{\"seq\":4,\"address\":1,\"funcode\":1,\"data\":{\"id\":5,\"angle\":60,\"delay_ms\":0}}"
-
     def home_arm(self):
         try: 
             self.sock.send(struct.pack('B', MSG_HOME_ARM))
@@ -135,10 +209,11 @@ class ArmClient:
             return False
 
 class TeleopController:
-    def __init__(self, ik_server, arm_client, oculus_reader):
+    def __init__(self, ik_server, arm_client, oculus_reader, log_data=True):
         self.ik_server = ik_server
         self.arm_client = arm_client
         self.oculus_reader = oculus_reader
+        self.logger = DataLogger() if log_data else None
 
         # Offset Tracking
         self.position_offset = None
@@ -148,7 +223,7 @@ class TeleopController:
 
         # Current Pose Tracking 
         self.current_angles_deg = None
-        self.gripper_width = 0.0
+        self.gripper_width = 1.0
 
         # Threshold to Send Command 
         self.pos_threshold = 0.005
@@ -331,7 +406,7 @@ class TeleopController:
             
         # Button pressed regular operations
         if button_pressed and self.position_offset is not None: 
-            current_pos_fk, _ = self.ik_server.forward_kinematics(self.current_angles_deg)
+            current_pos_fk, current_quat_fk = self.ik_server.forward_kinematics(self.current_angles_deg)
             controller_pos_robot = self.transform_controller_to_robot(controller_pos)
             controller_q_robot = self.transform_orientation_to_robot(controller_q)
 
@@ -373,6 +448,22 @@ class TeleopController:
 
             success = self.arm_client.command_angles(joint_angles, self.gripper_width)
             if success:
+                if self.logger and self.logger.recording:
+                    transition = Transition(
+                        timestamp=time.time(), 
+                        joint_angles=list(self.current_angles_deg),
+                        gripper_width=self.gripper_width, 
+                        ee_position=list(current_pos_fk),
+                        ee_quaternion=list(current_quat_fk),
+                        controller_pos=list(controller_pos),
+                        controller_quat=list(controller_q),
+                        commanded_joint_angles=list(joint_angles),
+                        commanded_gripper=self.gripper_width,
+                        episode_id=self.logger.episode_id,
+                        step=self.logger.step,
+                    )
+                    self.logger.log(transition)
+                
                 self.current_angles_deg = joint_angles
             else:
                 print("Failed to command joint angles")
@@ -539,6 +630,10 @@ def run_oculus(ik_server, oculus_reader, arm_client, hz=100, verbose=False):
     print("Starting teleop loop...")
     print("Press button A on controller to start controlling the arm")
 
+    prev_record = False
+    prev_success = False
+    prev_discard = False
+    
     while True: 
         time.sleep(1/hz)
 
@@ -562,6 +657,26 @@ def run_oculus(ik_server, oculus_reader, arm_client, hz=100, verbose=False):
         teleop_button = buttons.get('A', False)
         home_button = buttons.get('B', False)
         gripper_close_cmd = buttons.get('rightTrig', 0.0)[0]
+
+        record_button = buttons.get('RG', False)
+        success_button = True if buttons.get('rightJS', (0.0,0.0))[1] > 0.5 else False
+        discard_button = True if buttons.get('rightJS', (0.0,0.0))[1] < -0.5 else False
+
+        if record_button and not prev_record:
+            if not teleop.logger.recording:
+                teleop.logger.start_episode()
+            else: 
+                teleop.logger.stop_episode(success=False)
+
+        if success_button and not prev_success:
+            teleop.logger.stop_episode(success=True)
+        
+        if discard_button and not prev_discard:
+            teleop.logger.discard_episode()
+        
+        prev_record = record_button
+        prev_success = success_button
+        prev_discard = discard_button
 
         teleop.update(controller_pos, controller_quat, teleop_button, gripper_close_cmd, home_button)
 
