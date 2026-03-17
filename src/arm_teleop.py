@@ -15,6 +15,9 @@ import json
 from dataclasses import dataclass, asdict
 from oculus_reader_repo.oculus_reader.reader import OculusReader
 
+import contextlib
+from collections import defaultdict, deque
+
 NORMAL = 0 
 DEBUG = 1
 MODE = NORMAL
@@ -24,6 +27,25 @@ MSG_COMMAND_ANGLES = 1
 MSG_PING = 3
 MSG_HOME_ARM = 4
 MSG_COMMAND_GRIPPER = 5
+
+
+class PerfMonitor:
+    def __init__(self, window=100):
+        self.times = defaultdict(lambda: deque(maxlen=window))
+
+    @contextlib.contextmanager
+    def measure(self, label):
+        start = time.perf_counter()
+        yield
+        self.times[label].append((time.perf_counter() - start) * 1000)
+
+    def report(self):
+        print("\n--- Perf Report ---")
+        for label, samples in self.times.items():
+            arr = np.array(samples)
+            print(f"  {label:20s} avg={arr.mean():.2f}ms  max={arr.max():.2f}ms  p95={np.percentile(arr,95):.2f}ms")
+        print("-------------------\n")
+
 
 @dataclass
 class Transition:
@@ -44,6 +66,7 @@ class Transition:
     # Metadata 
     episode_id: int
     step: int
+
 
 class DataLogger:
     def __init__(self, output_dir="data"):
@@ -208,12 +231,14 @@ class ArmClient:
             print(f"Error homing robot arm: {e}")
             return False
 
+
 class TeleopController:
-    def __init__(self, ik_server, arm_client, oculus_reader, log_data=True):
+    def __init__(self, ik_server, arm_client, oculus_reader, perf=None, log_data=True):
         self.ik_server = ik_server
         self.arm_client = arm_client
         self.oculus_reader = oculus_reader
         self.logger = DataLogger() if log_data else None
+        self.perf = perf or PerfMonitor()
 
         # Offset Tracking
         self.position_offset = None
@@ -372,7 +397,7 @@ class TeleopController:
         self.arm_q_init = np.array(current_q)
 
         self.position_offset = np.array(current_pos) - controller_pos_robot
-        self.orientation_offset = self.calculate_orientation_offset(controller_q_robot, current_q) # switch back to original for easier debug
+        self.orientation_offset = self.calculate_orientation_offset(controller_q_robot, current_q)
 
         self.prev_delta_euler = np.zeros(3)
 
@@ -406,26 +431,27 @@ class TeleopController:
             
         # Button pressed regular operations
         if button_pressed and self.position_offset is not None: 
-            current_pos_fk, current_quat_fk = self.ik_server.forward_kinematics(self.current_angles_deg)
-            controller_pos_robot = self.transform_controller_to_robot(controller_pos)
-            controller_q_robot = self.transform_orientation_to_robot(controller_q)
 
-            # Calculate target position
-            target_pos = controller_pos_robot + self.position_offset
-            
-            # Compute delta rotation from controller init
-            controller_init_inv = R.from_quat(self.controller_q_init).inv()
-            delta_rot = R.from_quat(controller_q_robot) * controller_init_inv
-            # Extract delta as euler, zero out roll, only apply pitch and yaw
-            delta_euler = delta_rot.as_euler('xyz', degrees=True)
-            delta_euler[0] = 0 # ignore roll changes
-            delta_euler[1] *= self.rotation_scale
-            delta_euler[2] *= -self.rotation_scale # flip yaw direction
-            delta_rot_filtered = R.from_euler('xyz', delta_euler, degrees=True)
+            with self.perf.measure("fk"):
+                current_pos_fk, current_quat_fk = self.ik_server.forward_kinematics(self.current_angles_deg)
 
-            # Apply filtered delta starting orientation of arm 
-            target_rot = delta_rot_filtered * R.from_quat(self.arm_q_init)
-            target_quat = target_rot.as_quat()
+            with self.perf.measure("coord_transform"):
+                controller_pos_robot = self.transform_controller_to_robot(controller_pos)
+                controller_q_robot = self.transform_orientation_to_robot(controller_q)
+                target_pos = controller_pos_robot + self.position_offset
+
+            with self.perf.measure("rotation_math"):
+                controller_init_inv = R.from_quat(self.controller_q_init).inv()
+                delta_rot = R.from_quat(controller_q_robot) * controller_init_inv
+                # Extract delta as euler, zero out roll, only apply pitch and yaw
+                delta_euler = delta_rot.as_euler('xyz', degrees=True)
+                delta_euler[0] = 0 # ignore roll changes
+                delta_euler[1] *= self.rotation_scale
+                delta_euler[2] *= -self.rotation_scale # flip yaw direction
+                delta_rot_filtered = R.from_euler('xyz', delta_euler, degrees=True)
+                # Apply filtered delta to starting orientation of arm 
+                target_rot = delta_rot_filtered * R.from_quat(self.arm_q_init)
+                target_quat = target_rot.as_quat()
             
             # Skip command if no significant movement is made
             delta_euler_change = np.abs(delta_euler - self.prev_delta_euler)
@@ -436,17 +462,18 @@ class TeleopController:
                 return True
             
             self.prev_delta_euler = delta_euler.copy()
-            
 
+            with self.perf.measure("solve_ik"):
+                joint_angles = self.ik_server.solve_ik(self.current_angles_deg, target_pos, target_quat)
 
-            # Inverse kinematics to get joint angles from position command 
-            joint_angles = self.ik_server.solve_ik(self.current_angles_deg, target_pos, target_quat)
             if joint_angles is None: 
                 print("IK solution failed")
                 self.prev_button_state = button_pressed
                 return False
 
-            success = self.arm_client.command_angles(joint_angles, self.gripper_width)
+            with self.perf.measure("command_angles"):
+                success = self.arm_client.command_angles(joint_angles, self.gripper_width)
+
             if success:
                 if self.logger and self.logger.recording:
                     transition = Transition(
@@ -489,8 +516,9 @@ class TeleopController:
 
 
 class IKServer:
-    def __init__(self, urdf_path, verbose=False):
+    def __init__(self, urdf_path, verbose=False, perf=None):
         self.verbose = verbose
+        self.perf = perf or PerfMonitor()
         
         p.connect(p.DIRECT)
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
@@ -584,48 +612,51 @@ class IKServer:
                 position: [x, y, z]
                 orientation: [x, y, z, w] 
         """
+        with self.perf.measure("fk_pybullet"):
+            for i, angle in enumerate(joint_angles): 
+                if i < len(self.joint_indices):
+                    p.resetJointState(self.d1_arm_id, self.joint_indices[i], math.radians(angle))
 
-        for i, angle in enumerate(joint_angles): 
-            if i < len(self.joint_indices):
-                p.resetJointState(self.d1_arm_id, self.joint_indices[i], math.radians(angle))
-
-
-        link_state = p.getLinkState(self.d1_arm_id, self.end_effector_index)
+            link_state = p.getLinkState(self.d1_arm_id, self.end_effector_index)
 
         position = link_state[4] 
         orientation = link_state[5] 
 
         return position, orientation
     
-    
     def solve_ik(self, current_angles_deg, target_position, target_orientation): 
         """ Calculate joint angles needed for specific position and orientation """
         lower_limits = np.radians([-135, -90, -90, -135, -90, -135])
         upper_limits = np.radians([135, 90, 90, 135, 90, 135])
-        rest_poses = np.radians([0, -90, 90, 90, 0, 90, 0])
 
-        if not self.is_in_workspace(target_position):
-            return None
+        with self.perf.measure("workspace_check"):
+            if not self.is_in_workspace(target_position):
+                return None
 
-        joint_angles = p.calculateInverseKinematics(
-            self.d1_arm_id,
-            self.end_effector_index,
-            target_position,
-            target_orientation,
-            lowerLimits=lower_limits, 
-            upperLimits=upper_limits,
-            jointRanges=[u - l for u, l in zip(upper_limits, lower_limits)],
-            restPoses=np.radians(current_angles_deg),
-            maxNumIterations=100, 
-            residualThreshold=1e-5
-        )
+        with self.perf.measure("pybullet_ik"):
+            joint_angles = p.calculateInverseKinematics(
+                self.d1_arm_id,
+                self.end_effector_index,
+                target_position,
+                target_orientation,
+                lowerLimits=lower_limits, 
+                upperLimits=upper_limits,
+                jointRanges=[u - l for u, l in zip(upper_limits, lower_limits)],
+                restPoses=np.radians(current_angles_deg),
+                maxNumIterations=100, 
+                residualThreshold=1e-5
+            )
         
         return [math.degrees(joint_angles[i]) for i in range(self.num_joints)]
 
-def run_oculus(ik_server, oculus_reader, arm_client, hz=100, verbose=False):
-    """ Main operarion loop """
 
-    teleop = TeleopController(ik_server, arm_client, oculus_reader)
+def run_oculus(ik_server, oculus_reader, arm_client, hz=100, verbose=False):
+    """ Main operation loop """
+
+    perf = PerfMonitor()
+    teleop = TeleopController(ik_server, arm_client, oculus_reader, perf=perf)
+    ik_server.perf = perf
+    iteration = 0
 
     print("Starting teleop loop...")
     print("Press button A on controller to start controlling the arm")
@@ -636,9 +667,10 @@ def run_oculus(ik_server, oculus_reader, arm_client, hz=100, verbose=False):
     
     while True: 
         time.sleep(1/hz)
+        iteration += 1
 
-        # Get controller data 
-        state = teleop._get_state()
+        with perf.measure("get_state"):
+            state = teleop._get_state()
 
         if not state["controller_on"]: 
             print("Controller disconnected, skip ...")
@@ -646,21 +678,22 @@ def run_oculus(ik_server, oculus_reader, arm_client, hz=100, verbose=False):
         
         if 'r' not in state["poses"]:
             continue
+
+        with perf.measure("parse_pose"):
+            pose_matrix = state["poses"]['r']
+            buttons = state["buttons"]
+
+            # Get position and orientation from pose matrix
+            controller_pos, controller_quat = convert_pose_to_pos_quat(pose_matrix)
             
-        pose_matrix = state["poses"]['r']
-        buttons = state["buttons"]
+            # Get button state
+            teleop_button = buttons.get('A', False)
+            home_button = buttons.get('B', False)
+            gripper_close_cmd = buttons.get('rightTrig', 0.0)[0]
 
-        # Get position and orientation from pose matrix
-        controller_pos, controller_quat = convert_pose_to_pos_quat(pose_matrix)
-        
-        # Get button state
-        teleop_button = buttons.get('A', False)
-        home_button = buttons.get('B', False)
-        gripper_close_cmd = buttons.get('rightTrig', 0.0)[0]
-
-        record_button = buttons.get('RG', False)
-        success_button = True if buttons.get('rightJS', (0.0,0.0))[1] > 0.5 else False
-        discard_button = True if buttons.get('rightJS', (0.0,0.0))[1] < -0.5 else False
+            record_button = buttons.get('RG', False)
+            success_button = True if buttons.get('rightJS', (0.0,0.0))[1] > 0.5 else False
+            discard_button = True if buttons.get('rightJS', (0.0,0.0))[1] < -0.5 else False
 
         if record_button and not prev_record:
             if not teleop.logger.recording:
@@ -678,12 +711,16 @@ def run_oculus(ik_server, oculus_reader, arm_client, hz=100, verbose=False):
         prev_success = success_button
         prev_discard = discard_button
 
-        teleop.update(controller_pos, controller_quat, teleop_button, gripper_close_cmd, home_button)
+        with perf.measure("teleop_update"):
+            teleop.update(controller_pos, controller_quat, teleop_button, gripper_close_cmd, home_button)
+
+        if iteration % 200 == 0:
+            perf.report()
 
         if verbose:
             print(f"Controller pos: {controller_pos}, Button A: {teleop_button}, Gripper: {gripper_close_cmd}, Home: {home_button}")
 
-    
+
 def convert_pose_to_pos_quat(T):
     """
     T: 4x4 numpy transform matrix
@@ -702,6 +739,7 @@ def convert_pose_to_pos_quat(T):
     # SciPy returns quaternions as [x, y, z, w]
 
     return pos.tolist(), quat.tolist()
+
 
 if __name__ == "__main__":
 
@@ -743,11 +781,8 @@ if __name__ == "__main__":
         print("Press Enter when ready...")
         input()
         
-        # for i in range(5):
         while True:
             poses, buttons = oculus_reader.get_transformations_and_buttons()
             if 'r' in poses:
                 print(f"Buttons = [{buttons}]")
             time.sleep(0.2)
-
-    
